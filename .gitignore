@@ -1,0 +1,9 @@
+.claude/
+.build/
+.swiftpm/
+build/
+editor/node_modules/
+editor/dist/
+.DS_Store
+*.xcodeproj
+xcuserdata/

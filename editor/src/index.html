@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin: 0; height: 100%; background: transparent;
+    font: 15px -apple-system, BlinkMacSystemFont, "SF Pro", sans-serif; color: #1c1c1e; }
+  #editor { padding: 14px 16px; min-height: 100vh; box-sizing: border-box; }
+  .ProseMirror { outline: none; min-height: calc(100vh - 28px); }
+  .ProseMirror:focus { outline: none; }
+  .ProseMirror p.is-editor-empty:first-child::before {
+    content: "Type a thought…"; color: #9a9a9e; float: left; height: 0; pointer-events: none; }
+  .ProseMirror { caret-color: #F0B90B; }
+  .ProseMirror h1 { font-size: 1.5em; } .ProseMirror h2 { font-size: 1.25em; }
+  .ProseMirror pre { background: rgba(120,120,128,0.14); padding: 8px 10px; border-radius: 6px; }
+  @media (prefers-color-scheme: dark) { html, body { color: #f2f2f7; } }
+</style>
+</head>
+<body>
+<div id="editor"></div>
+<script src="bundle.js"></script>
+</body>
+</html>
