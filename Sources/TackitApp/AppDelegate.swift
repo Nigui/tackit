@@ -9,9 +9,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let metrics = LatencyMetrics()
     private var statusItem: NSStatusItem?
 
+    private var store: NoteStore?
+    private var openNotes: [UUID: Note] = [:]
+    private var saveWork: [UUID: DispatchWorkItem] = [:]
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         Diag.log("launch: applicationDidFinishLaunching")
         setupStatusItem()
+        setupStore()
 
         let dotKeyCode = KeyboardLayout.keyCode(for: ".") ?? UInt32(kVK_ANSI_Period)
         Diag.log("resolved '.' keyCode=\(dotKeyCode) (ANSI period=\(kVK_ANSI_Period))")
@@ -30,6 +35,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pool = EditorSurfacePool(size: 3)
         pool.warmUp()
         metrics.printMemory(context: "launch")
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        for note in openNotes.values {
+            try? store?.save(note)
+        }
+    }
+
+    private func setupStore() {
+        do {
+            let root = try NoteStore.defaultRootURL()
+            store = try NoteStore(rootURL: root)
+            Diag.log("store at \(root.path)")
+        } catch {
+            Diag.log("ERROR: store init failed: \(error)")
+        }
     }
 
     private func setupStatusItem() {
@@ -69,24 +90,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         if panels.isEmpty {
-            openNewSticky()
+            if let last = mostRecentNote() {
+                openNewSticky(existing: last)
+            } else {
+                openNewSticky()
+            }
         } else {
             panels.forEach { $0.orderFrontRegardless() }
             focusTop()
         }
     }
 
-    func openNewSticky() {
+    private func mostRecentNote() -> Note? {
+        (try? store?.loadAll())?.max(by: { $0.metadata.updatedAt < $1.metadata.updatedAt })
+    }
+
+    func openNewSticky(existing: Note? = nil) {
+        let note = existing ?? Note()
+        if existing == nil { try? store?.save(note) }
+        openNotes[note.id] = note
+
         let surface = pool.acquire()
         surface.onMetric = { [weak self] name, ms in
             self?.metrics.recordKeystroke(ms: ms, first: name == "firstKeystroke")
         }
-        surface.onDocChanged = { markdown in
-            Diag.log("docChanged (\(markdown.count) chars) — persistence lands in M1.1")
+        surface.onDocChanged = { [weak self] markdown in
+            self?.handleDocChanged(id: note.id, markdown: markdown)
         }
 
         let index = panels.count
-        let panel = StickyPanel(surface: surface, index: index)
+        let panel = StickyPanel(surface: surface, index: index, noteId: note.id)
         panels.append(panel)
         panel.onClose = { [weak self, weak panel] in
             guard let self, let panel else { return }
@@ -96,10 +129,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.placeTopRight(offsetIndex: index)
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
+        surface.load(markdown: note.body)
         surface.focus()
 
-        Diag.log("openNewSticky index=\(index) frame=\(NSStringFromRect(panel.frame)) visible=\(panel.isVisible)")
+        Diag.log("openNewSticky note=\(note.id) index=\(index) visible=\(panel.isVisible)")
         metrics.printMemory(context: "\(panels.count) sticky(ies) open")
+    }
+
+    private func handleDocChanged(id: UUID, markdown: String) {
+        guard var note = openNotes[id] else { return }
+        note.body = markdown
+        note.metadata.updatedAt = Date()
+        openNotes[id] = note
+        scheduleSave(id)
+    }
+
+    private func scheduleSave(_ id: UUID) {
+        saveWork[id]?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, let note = self.openNotes[id] else { return }
+            do {
+                try self.store?.save(note)
+                Diag.log("saved note \(id) (\(note.body.count) chars)")
+            } catch {
+                Diag.log("ERROR: save failed: \(error)")
+            }
+        }
+        saveWork[id] = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
     }
 
     private func focusTop() {
@@ -110,6 +167,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func closeSticky(_ panel: StickyPanel) {
         Diag.log("close sticky (Cmd+W)")
+        let id = panel.noteId
+        saveWork[id]?.cancel()
+        if let note = openNotes[id] { try? store?.save(note) }
+        openNotes[id] = nil
+
         panel.orderOut(nil)
         if let index = panels.firstIndex(where: { $0 === panel }) {
             panels.remove(at: index)

@@ -9,12 +9,14 @@ final class DragStrip: NSView {
 
 final class StickyPanel: NSPanel {
     let editorSurface: EditorSurface
+    let noteId: UUID
     var onClose: (() -> Void)?
     var onNewNote: (() -> Void)?
     private let headerHeight: CGFloat = 22
 
-    init(surface: EditorSurface, index: Int) {
+    init(surface: EditorSurface, index: Int, noteId: UUID) {
         self.editorSurface = surface
+        self.noteId = noteId
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 380, height: 460),
             styleMask: [.nonactivatingPanel, .titled, .resizable, .fullSizeContentView],
