@@ -1,5 +1,6 @@
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
+import { Markdown } from 'tiptap-markdown'
 
 interface Envelope {
   v: number
@@ -38,7 +39,7 @@ let applyingRemote = false
 
 const editor = new Editor({
   element,
-  extensions: [StarterKit],
+  extensions: [StarterKit, Markdown.configure({ html: false, linkify: false, breaks: false })],
   content: '',
   autofocus: false,
   onCreate() {
@@ -49,9 +50,14 @@ const editor = new Editor({
     if (applyingRemote) {
       return
     }
-    postToNative('docChanged', { markdown: editor.getText() })
+    postToNative('docChanged', { markdown: getMarkdown() })
   },
 })
+
+function getMarkdown(): string {
+  const storage = editor.storage as { markdown?: { getMarkdown: () => string } }
+  return storage.markdown?.getMarkdown() ?? editor.getText()
+}
 
 let firstKeyLogged = false
 editor.view.dom.addEventListener(

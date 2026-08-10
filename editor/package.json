@@ -5,15 +5,19 @@
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "watch": "node build.mjs --watch"
+    "watch": "node build.mjs --watch",
+    "test": "vitest run"
   },
   "dependencies": {
     "@tiptap/core": "^2.8.0",
     "@tiptap/pm": "^2.8.0",
-    "@tiptap/starter-kit": "^2.8.0"
+    "@tiptap/starter-kit": "^2.8.0",
+    "tiptap-markdown": "^0.8.10"
   },
   "devDependencies": {
     "esbuild": "^0.24.0",
-    "typescript": "^5.6.0"
+    "jsdom": "^25.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
   }
 }
