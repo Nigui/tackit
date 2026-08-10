@@ -1,16 +1,13 @@
 import AppKit
 import Carbon.HIToolbox
-import WebKit
 import TackitCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var pool: WebViewPool!
+    private var pool: EditorSurfacePool!
     private var panels: [StickyPanel] = []
     private var hotkey: GlobalHotkey?
     private let metrics = LatencyMetrics()
-    private var lastShowTime: CFAbsoluteTime = 0
     private var statusItem: NSStatusItem?
-    private weak var pendingFocus: WKWebView?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Diag.log("launch: applicationDidFinishLaunching")
@@ -30,7 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         Diag.log("ready + hotkey live (pool warming async). Press Cmd+Shift+.")
 
-        pool = WebViewPool(size: 3, messageHandler: self)
+        pool = EditorSurfacePool(size: 3)
         pool.warmUp()
         metrics.printMemory(context: "launch")
     }
@@ -74,17 +71,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if panels.isEmpty {
             openNewSticky()
         } else {
-            lastShowTime = CFAbsoluteTimeGetCurrent()
             panels.forEach { $0.orderFrontRegardless() }
             focusTop()
         }
     }
 
     func openNewSticky() {
-        lastShowTime = CFAbsoluteTimeGetCurrent()
-        let webView = pool.acquire()
+        let surface = pool.acquire()
+        surface.onMetric = { [weak self] name, ms in
+            self?.metrics.recordKeystroke(ms: ms, first: name == "firstKeystroke")
+        }
+        surface.onDocChanged = { markdown in
+            Diag.log("docChanged (\(markdown.count) chars) — persistence lands in M1.1")
+        }
+
         let index = panels.count
-        let panel = StickyPanel(webView: webView, index: index)
+        let panel = StickyPanel(surface: surface, index: index)
         panels.append(panel)
         panel.onClose = { [weak self, weak panel] in
             guard let self, let panel else { return }
@@ -94,22 +96,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.placeTopRight(offsetIndex: index)
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
-        pendingFocus = webView
-        requestFocus(webView)
-        let screenInfo = NSScreen.main.map { NSStringFromRect($0.visibleFrame) } ?? "nil"
-        Diag.log("openNewSticky index=\(index) frame=\(NSStringFromRect(panel.frame)) visible=\(panel.isVisible) screen=\(screenInfo)")
+        surface.focus()
+
+        Diag.log("openNewSticky index=\(index) frame=\(NSStringFromRect(panel.frame)) visible=\(panel.isVisible)")
         metrics.printMemory(context: "\(panels.count) sticky(ies) open")
     }
 
     private func focusTop() {
         guard let top = panels.last else { return }
         top.makeKeyAndOrderFront(nil)
-        pendingFocus = top.editorWebView
-        requestFocus(top.editorWebView)
-    }
-
-    private func requestFocus(_ webView: WKWebView) {
-        webView.evaluateJavaScript("window.focusEditor ? (window.focusEditor(), true) : false")
+        top.editorSurface.focus()
     }
 
     private func closeSticky(_ panel: StickyPanel) {
@@ -118,32 +114,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let index = panels.firstIndex(where: { $0 === panel }) {
             panels.remove(at: index)
         }
-        let webView = panel.editorWebView
-        webView.removeFromSuperview()
-        pool.release(webView)
-        panel.close()
-    }
-}
-
-extension AppDelegate: WKScriptMessageHandler {
-    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard let body = message.body as? [String: Any],
-              let event = body["event"] as? String else { return }
-        switch event {
-        case "editorCreated":
-            Diag.log("editor bundle loaded in a webview")
-            if let webView = message.webView, webView === pendingFocus {
-                requestFocus(webView)
-            }
-        case "focused":
-            let deltaMs = (CFAbsoluteTimeGetCurrent() - lastShowTime) * 1000
-            metrics.recordReadiness(ms: deltaMs)
-        case "firstKeystroke", "keystroke":
-            if let latency = body["latency"] as? Double {
-                metrics.recordKeystroke(ms: latency, first: event == "firstKeystroke")
-            }
-        default:
-            break
+        let surface = panel.editorSurface
+        surface.view.removeFromSuperview()
+        if let webSurface = surface as? WebEditorSurface {
+            pool.release(webSurface)
         }
+        panel.close()
     }
 }

@@ -1,5 +1,4 @@
 import AppKit
-import WebKit
 
 final class DragStrip: NSView {
     override var mouseDownCanMoveWindow: Bool { true }
@@ -9,13 +8,13 @@ final class DragStrip: NSView {
 }
 
 final class StickyPanel: NSPanel {
-    let editorWebView: WKWebView
+    let editorSurface: EditorSurface
     var onClose: (() -> Void)?
     var onNewNote: (() -> Void)?
     private let headerHeight: CGFloat = 22
 
-    init(webView: WKWebView, index: Int) {
-        self.editorWebView = webView
+    init(surface: EditorSurface, index: Int) {
+        self.editorSurface = surface
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 380, height: 460),
             styleMask: [.nonactivatingPanel, .titled, .resizable, .fullSizeContentView],
@@ -45,9 +44,10 @@ final class StickyPanel: NSPanel {
         header.layer?.backgroundColor = NSColor(calibratedRed: 0.941, green: 0.725, blue: 0.043, alpha: 0.16).cgColor
         content.addSubview(header)
 
-        webView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: bounds.height - headerHeight)
-        webView.autoresizingMask = [.width, .height]
-        content.addSubview(webView)
+        let editorView = surface.view
+        editorView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: bounds.height - headerHeight)
+        editorView.autoresizingMask = [.width, .height]
+        content.addSubview(editorView)
 
         if index == 0 {
             setFrameAutosaveName("TackitStickyM0")

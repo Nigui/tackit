@@ -1,22 +1,31 @@
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 
+interface Envelope {
+  v: number
+  id: string
+  type: string
+  payload?: Record<string, unknown>
+}
+
 declare global {
   interface Window {
     webkit?: {
       messageHandlers?: Record<string, { postMessage: (payload: unknown) => void }>
     }
-    focusEditor?: () => void
-    resetEditor?: () => void
+    __tackitReceive?: (envelope: Envelope) => void
     tackitReady?: boolean
   }
 }
 
-function post(channel: string, payload: unknown): void {
+let messageCounter = 0
+
+function postToNative(type: string, payload: Record<string, unknown> = {}): void {
+  const envelope: Envelope = { v: 1, id: `js-${(messageCounter += 1)}`, type, payload }
   try {
-    window.webkit?.messageHandlers?.[channel]?.postMessage(payload)
-  } catch (_err) {
-    void _err
+    window.webkit?.messageHandlers?.tackit?.postMessage(envelope)
+  } catch (_error) {
+    void _error
   }
 }
 
@@ -25,6 +34,8 @@ if (!element) {
   throw new Error('missing #editor element')
 }
 
+let applyingRemote = false
+
 const editor = new Editor({
   element,
   extensions: [StarterKit],
@@ -32,7 +43,13 @@ const editor = new Editor({
   autofocus: false,
   onCreate() {
     window.tackitReady = true
-    post('metrics', { event: 'editorCreated', t: performance.now() })
+    postToNative('ready')
+  },
+  onUpdate() {
+    if (applyingRemote) {
+      return
+    }
+    postToNative('docChanged', { markdown: editor.getText() })
   },
 })
 
@@ -40,15 +57,13 @@ let firstKeyLogged = false
 editor.view.dom.addEventListener(
   'keydown',
   () => {
-    const keydown = performance.now()
+    const start = performance.now()
     requestAnimationFrame(() => {
-      const painted = performance.now()
-      if (!firstKeyLogged) {
-        firstKeyLogged = true
-        post('metrics', { event: 'firstKeystroke', latency: painted - keydown })
-      } else {
-        post('metrics', { event: 'keystroke', latency: painted - keydown })
-      }
+      postToNative('metric', {
+        name: firstKeyLogged ? 'keystroke' : 'firstKeystroke',
+        ms: performance.now() - start,
+      })
+      firstKeyLogged = true
     })
   },
   true,
@@ -64,12 +79,26 @@ document.body.addEventListener('mousedown', (event) => {
   editor.commands.focus('end')
 })
 
-window.focusEditor = () => {
-  editor.commands.focus('end')
-  post('metrics', { event: 'focused', t: performance.now() })
-}
-
-window.resetEditor = () => {
-  editor.commands.clearContent()
-  editor.commands.blur()
+window.__tackitReceive = (envelope: Envelope) => {
+  if (!envelope || envelope.v !== 1) {
+    return
+  }
+  switch (envelope.type) {
+    case 'load':
+      applyingRemote = true
+      editor.commands.setContent(String(envelope.payload?.markdown ?? ''))
+      applyingRemote = false
+      break
+    case 'focus':
+      editor.commands.focus('end')
+      break
+    case 'reset':
+      applyingRemote = true
+      editor.commands.clearContent()
+      applyingRemote = false
+      editor.commands.blur()
+      break
+    default:
+      break
+  }
 }
