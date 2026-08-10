@@ -8,8 +8,11 @@ let package = Package(
         .executable(name: "tackit", targets: ["TackitApp"]),
         .library(name: "TackitCore", targets: ["TackitCore"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/jpsim/Yams.git", from: "5.1.0"),
+    ],
     targets: [
-        .target(name: "TackitCore"),
+        .target(name: "TackitCore", dependencies: [.product(name: "Yams", package: "Yams")]),
         .executableTarget(
             name: "TackitApp",
             dependencies: ["TackitCore"],
