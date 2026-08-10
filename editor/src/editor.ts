@@ -7,6 +7,7 @@ declare global {
       messageHandlers?: Record<string, { postMessage: (payload: unknown) => void }>
     }
     focusEditor?: () => void
+    resetEditor?: () => void
     tackitReady?: boolean
   }
 }
@@ -66,4 +67,9 @@ document.body.addEventListener('mousedown', (event) => {
 window.focusEditor = () => {
   editor.commands.focus('end')
   post('metrics', { event: 'focused', t: performance.now() })
+}
+
+window.resetEditor = () => {
+  editor.commands.clearContent()
+  editor.commands.blur()
 }

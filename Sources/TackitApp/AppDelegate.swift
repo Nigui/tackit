@@ -10,12 +10,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let metrics = LatencyMetrics()
     private var lastShowTime: CFAbsoluteTime = 0
     private var statusItem: NSStatusItem?
-    private var pendingFocus: WKWebView?
+    private weak var pendingFocus: WKWebView?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Diag.log("launch: applicationDidFinishLaunching")
         setupStatusItem()
-        pool = WebViewPool(size: 3, messageHandler: self)
 
         let dotKeyCode = KeyboardLayout.keyCode(for: ".") ?? UInt32(kVK_ANSI_Period)
         Diag.log("resolved '.' keyCode=\(dotKeyCode) (ANSI period=\(kVK_ANSI_Period))")
@@ -26,8 +25,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Diag.log("hotkey fired (Cmd+Shift+.)")
             self?.toggleStickies()
         }
-
+        if hotkey?.isRegistered != true {
+            reportHotkeyFailure()
+        }
         Diag.log("ready + hotkey live (pool warming async). Press Cmd+Shift+.")
+
+        pool = WebViewPool(size: 3, messageHandler: self)
         pool.warmUp()
         metrics.printMemory(context: "launch")
     }
@@ -49,6 +52,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func menuNewSticky() { openNewSticky() }
     @objc private func menuToggle() { toggleStickies() }
     @objc private func menuQuit() { NSApp.terminate(nil) }
+
+    private func reportHotkeyFailure() {
+        Diag.log("ERROR: global hotkey NOT registered — surfacing to user")
+        statusItem?.button?.title = "📌⚠️"
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Tackit couldn’t register its global shortcut"
+        alert.informativeText = "⌘⇧. may be in use by another app. You can still open notes from the 📌 menu; a rebindable shortcut is coming."
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
 
     private func toggleStickies() {
         if panels.contains(where: { $0.isVisible }) {
@@ -103,6 +118,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let index = panels.firstIndex(where: { $0 === panel }) {
             panels.remove(at: index)
         }
+        let webView = panel.editorWebView
+        webView.removeFromSuperview()
+        pool.release(webView)
         panel.close()
     }
 }

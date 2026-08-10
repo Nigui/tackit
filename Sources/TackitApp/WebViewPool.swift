@@ -4,12 +4,19 @@ final class WebViewPool {
     private var warm: [WKWebView] = []
     private weak var messageHandler: WKScriptMessageHandler?
     private let size: Int
+    private let editorDirectory: URL?
+    private let indexURL: URL?
+    private let navigationDelegate: EditorNavigationDelegate
 
     var warmCount: Int { warm.count }
 
     init(size: Int, messageHandler: WKScriptMessageHandler) {
         self.size = size
         self.messageHandler = messageHandler
+        let directory = Bundle.module.resourceURL?.appendingPathComponent("editor")
+        self.editorDirectory = directory
+        self.indexURL = Bundle.module.url(forResource: "index", withExtension: "html", subdirectory: "editor")
+        self.navigationDelegate = EditorNavigationDelegate(baseDirectory: directory ?? Bundle.module.bundleURL)
     }
 
     func warmUp() {
@@ -38,11 +45,11 @@ final class WebViewPool {
         configuration.userContentController = controller
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
+        webView.navigationDelegate = navigationDelegate
         webView.setValue(false, forKey: "drawsBackground")
 
-        if let editorDir = Bundle.module.resourceURL?.appendingPathComponent("editor"),
-           let indexURL = Bundle.module.url(forResource: "index", withExtension: "html", subdirectory: "editor") {
-            webView.loadFileURL(indexURL, allowingReadAccessTo: editorDir)
+        if let indexURL, let editorDirectory {
+            webView.loadFileURL(indexURL, allowingReadAccessTo: editorDirectory)
         } else {
             Diag.log("ERROR: editor bundle not found in resources")
         }
@@ -59,5 +66,12 @@ final class WebViewPool {
         }
         scheduleWarm()
         return webView
+    }
+
+    func release(_ webView: WKWebView) {
+        webView.evaluateJavaScript("window.resetEditor && window.resetEditor()")
+        if warm.count < size {
+            warm.append(webView)
+        }
     }
 }

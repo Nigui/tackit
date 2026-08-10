@@ -2,6 +2,7 @@ import AppKit
 import Carbon.HIToolbox
 
 final class GlobalHotkey {
+    private(set) var isRegistered = false
     private var hotKeyRef: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
     private let onFire: () -> Void
@@ -38,7 +39,8 @@ final class GlobalHotkey {
             0,
             &hotKeyRef
         )
-        Diag.log("GlobalHotkey install=\(installStatus) register=\(registerStatus) (0 == success)")
+        isRegistered = (installStatus == noErr && registerStatus == noErr && hotKeyRef != nil)
+        Diag.log("GlobalHotkey install=\(installStatus) register=\(registerStatus) registered=\(isRegistered)")
     }
 
     deinit {
