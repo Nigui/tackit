@@ -1,9 +1,12 @@
 import AppKit
+import TackitCore
 
-final class DragStrip: NSView {
+final class ShadowCardView: NSView {
     override var mouseDownCanMoveWindow: Bool { true }
-    override func mouseDown(with event: NSEvent) {
-        window?.performDrag(with: event)
+
+    override func layout() {
+        super.layout()
+        layer?.shadowPath = CGPath(roundedRect: bounds, cornerWidth: 12, cornerHeight: 12, transform: nil)
     }
 }
 
@@ -14,52 +17,80 @@ final class StickyPanel: NSPanel {
     var onNewNote: (() -> Void)?
     var onQuickOpen: (() -> Void)?
     var onSwitchTo: ((Int) -> Void)?
-    private let headerHeight: CGFloat = 22
+    var onFrameChanged: ((NSRect) -> Void)?
+    private var header: NoteHeaderView?
+    private let clipView = NSView()
+    private let cardView = ShadowCardView()
+    private let headerHeight: CGFloat = 116
+    private let padding: CGFloat = 18
+    static let accent = NSColor(calibratedRed: 0.941, green: 0.725, blue: 0.043, alpha: 1.0)
 
     init(surface: EditorSurface, index: Int, noteId: UUID) {
         self.editorSurface = surface
         self.noteId = noteId
+        let card = NSSize(width: 380, height: 460)
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 460),
-            styleMask: [.nonactivatingPanel, .titled, .resizable, .fullSizeContentView],
+            contentRect: NSRect(x: 0, y: 0, width: card.width + padding * 2, height: card.height + padding * 2),
+            styleMask: [.borderless, .nonactivatingPanel, .resizable],
             backing: .buffered,
             defer: false
         )
 
         isFloatingPanel = true
         level = .floating
-        titlebarAppearsTransparent = true
-        titleVisibility = .hidden
-        standardWindowButton(.closeButton)?.isHidden = true
-        standardWindowButton(.miniaturizeButton)?.isHidden = true
-        standardWindowButton(.zoomButton)?.isHidden = true
         isMovableByWindowBackground = true
         hidesOnDeactivate = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        backgroundColor = NSColor.textBackgroundColor.withAlphaComponent(0.985)
-        hasShadow = true
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = false
 
         guard let content = contentView else { return }
-        let bounds = content.bounds
+        content.wantsLayer = true
+        content.layer?.masksToBounds = false
 
-        let header = DragStrip(frame: NSRect(x: 0, y: bounds.height - headerHeight, width: bounds.width, height: headerHeight))
-        header.autoresizingMask = [.width, .minYMargin]
-        header.wantsLayer = true
-        header.layer?.backgroundColor = NSColor(calibratedRed: 0.941, green: 0.725, blue: 0.043, alpha: 0.16).cgColor
-        content.addSubview(header)
+        cardView.frame = content.bounds.insetBy(dx: padding, dy: padding)
+        cardView.autoresizingMask = [.width, .height]
+        cardView.wantsLayer = true
+        cardView.layer?.masksToBounds = false
+        cardView.layer?.shadowColor = StickyPanel.accent.cgColor
+        cardView.layer?.shadowOffset = .zero
+        cardView.layer?.shadowRadius = 10
+        cardView.layer?.shadowOpacity = 0
+        content.addSubview(cardView)
+
+        clipView.frame = cardView.bounds
+        clipView.autoresizingMask = [.width, .height]
+        clipView.wantsLayer = true
+        clipView.layer?.cornerRadius = 12
+        clipView.layer?.masksToBounds = true
+        clipView.layer?.borderColor = StickyPanel.accent.cgColor
+        cardView.addSubview(clipView)
+
+        let bounds = clipView.bounds
+        let headerView = NoteHeaderView(frame: NSRect(x: 0, y: bounds.height - headerHeight, width: bounds.width, height: headerHeight))
+        headerView.autoresizingMask = [.width, .minYMargin]
+        clipView.addSubview(headerView)
+        header = headerView
 
         let editorView = surface.view
         editorView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: bounds.height - headerHeight)
         editorView.autoresizingMask = [.width, .height]
-        content.addSubview(editorView)
+        clipView.addSubview(editorView)
 
-        if index == 0 {
-            setFrameAutosaveName("TackitStickyM0")
-        }
+        applyFocusState(true)
+        delegate = self
     }
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    private func applyFocusState(_ focused: Bool) {
+        clipView.layer?.backgroundColor = NSColor.textBackgroundColor
+            .withAlphaComponent(focused ? 0.98 : 0.86).cgColor
+        clipView.layer?.borderWidth = focused ? 2.5 : 0
+        cardView.layer?.shadowOpacity = focused ? 0.85 : 0
+    }
 
     private static let numberKeyCodes: [UInt16: Int] = [
         18: 1, 19: 2, 20: 3, 21: 4, 23: 5, 22: 6, 26: 7, 28: 8, 25: 9,
@@ -81,6 +112,16 @@ final class StickyPanel: NSPanel {
         }
     }
 
+    func update(note: Note) {
+        header?.configure(
+            icon: note.metadata.icon,
+            title: NoteDisplay.title(for: note),
+            description: NoteDisplay.description(for: note),
+            category: NoteDisplay.category(for: note),
+            tags: note.metadata.tags
+        )
+    }
+
     func placeTopRight(offsetIndex: Int) {
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         let visible = screen.visibleFrame
@@ -89,5 +130,18 @@ final class StickyPanel: NSPanel {
         let x = visible.maxX - frame.width - margin - stagger
         let y = visible.maxY - frame.height - margin - stagger
         setFrameOrigin(NSPoint(x: x, y: y))
+    }
+}
+
+extension StickyPanel: NSWindowDelegate {
+    func windowDidMove(_ notification: Notification) { onFrameChanged?(frame) }
+    func windowDidResize(_ notification: Notification) { onFrameChanged?(frame) }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        applyFocusState(true)
+    }
+
+    func windowDidResignKey(_ notification: Notification) {
+        applyFocusState(false)
     }
 }

@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var saveWork: [UUID: DispatchWorkItem] = [:]
     private let searchIndex = InMemorySearchIndex()
     private lazy var quickOpen = QuickOpenController(index: searchIndex)
+    private let windowState = WindowStateStore()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Diag.log("launch: applicationDidFinishLaunching")
@@ -134,10 +135,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.onNewNote = { [weak self] in self?.openNewSticky() }
         panel.onQuickOpen = { [weak self] in self?.openQuickOpen() }
         panel.onSwitchTo = { [weak self] number in self?.switchTo(number) }
-        panel.placeTopRight(offsetIndex: index)
+        panel.onFrameChanged = { [weak self] frame in self?.windowState.save(frame, for: note.id) }
+        if let saved = windowState.frame(for: note.id) {
+            panel.setFrame(saved, display: false)
+        } else {
+            panel.placeTopRight(offsetIndex: index)
+        }
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
         surface.load(markdown: note.body)
+        panel.update(note: note)
         surface.focus()
 
         Diag.log("openNewSticky note=\(note.id) index=\(index) visible=\(panel.isVisible)")
