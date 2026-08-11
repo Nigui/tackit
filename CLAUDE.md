@@ -10,6 +10,8 @@ Implementation details (code structure, libraries, storage strategy, algorithms)
 
 Corollary: keep user-facing shortcuts configurable where possible.
 
+Corollary — **hotkey-first**: every action must be reachable and driven by a keyboard shortcut first. Avoid relying on buttons/mouse affordances; where a control is unavoidable, the hotkey path must exist and be the primary one. Chrome-less, keyboard-driven speed is the product's core.
+
 ## Orientation
 
 - `docs/` — product & engineering docs: market research, PRD, roadmap, architecture (+ ADRs in `docs/adr/`), the interaction & keymap spec, the M1 task list, and code reviews in `docs/reviews/`.
