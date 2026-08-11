@@ -22,6 +22,13 @@ if [ -d "$BIN/Tackit_TackitApp.bundle" ]; then
 fi
 cp packaging/Info.plist "$APP/Contents/Info.plist"
 
+echo "==> stopping any running Tackit instance"
+killall tackit 2>/dev/null || true
+for _ in $(seq 1 20); do
+  pgrep -x tackit >/dev/null || break
+  sleep 0.1
+done
+
 echo "==> launching Tackit.app (menu-bar agent; press Cmd+Shift+. to open a sticky)"
 echo "==> watch numbers:  log stream --predicate 'eventMessage CONTAINS \"[Tackit]\"' --style compact"
-open "$APP"
+open -n "$APP"
