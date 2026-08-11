@@ -1,15 +1,6 @@
 import AppKit
 import TackitCore
 
-final class ShadowCardView: NSView {
-    override var mouseDownCanMoveWindow: Bool { true }
-
-    override func layout() {
-        super.layout()
-        layer?.shadowPath = CGPath(roundedRect: bounds, cornerWidth: 12, cornerHeight: 12, transform: nil)
-    }
-}
-
 final class StickyPanel: NSPanel {
     let editorSurface: EditorSurface
     let noteId: UUID
@@ -18,19 +9,20 @@ final class StickyPanel: NSPanel {
     var onQuickOpen: (() -> Void)?
     var onSwitchTo: ((Int) -> Void)?
     var onFrameChanged: ((NSRect) -> Void)?
+    var onRequestGroups: (() -> [String])?
+    var onFilePath: (() -> String)?
+    var onMetadataCommit: ((NoteMetadata) -> Void)?
     private var header: NoteHeaderView?
-    private let clipView = NSView()
-    private let cardView = ShadowCardView()
-    private let headerHeight: CGFloat = 116
-    private let padding: CGFloat = 18
-    static let accent = NSColor(calibratedRed: 0.941, green: 0.725, blue: 0.043, alpha: 1.0)
+    private var currentNote: Note?
+    private var overlay: MetadataOverlay?
+    private let card = CardView()
+    private let headerHeight: CGFloat = 96
 
     init(surface: EditorSurface, index: Int, noteId: UUID) {
         self.editorSurface = surface
         self.noteId = noteId
-        let card = NSSize(width: 380, height: 460)
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: card.width + padding * 2, height: card.height + padding * 2),
+            contentRect: NSRect(x: 0, y: 0, width: 380, height: 460),
             styleMask: [.borderless, .nonactivatingPanel, .resizable],
             backing: .buffered,
             defer: false
@@ -43,40 +35,26 @@ final class StickyPanel: NSPanel {
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = false
+        hasShadow = true
+        contentMinSize = NSSize(width: 260, height: 220)
 
         guard let content = contentView else { return }
         content.wantsLayer = true
-        content.layer?.masksToBounds = false
 
-        cardView.frame = content.bounds.insetBy(dx: padding, dy: padding)
-        cardView.autoresizingMask = [.width, .height]
-        cardView.wantsLayer = true
-        cardView.layer?.masksToBounds = false
-        cardView.layer?.shadowColor = StickyPanel.accent.cgColor
-        cardView.layer?.shadowOffset = .zero
-        cardView.layer?.shadowRadius = 10
-        cardView.layer?.shadowOpacity = 0
-        content.addSubview(cardView)
+        card.frame = content.bounds
+        card.autoresizingMask = [.width, .height]
+        content.addSubview(card)
 
-        clipView.frame = cardView.bounds
-        clipView.autoresizingMask = [.width, .height]
-        clipView.wantsLayer = true
-        clipView.layer?.cornerRadius = 12
-        clipView.layer?.masksToBounds = true
-        clipView.layer?.borderColor = StickyPanel.accent.cgColor
-        cardView.addSubview(clipView)
-
-        let bounds = clipView.bounds
+        let bounds = card.bounds
         let headerView = NoteHeaderView(frame: NSRect(x: 0, y: bounds.height - headerHeight, width: bounds.width, height: headerHeight))
         headerView.autoresizingMask = [.width, .minYMargin]
-        clipView.addSubview(headerView)
+        card.addSubview(headerView)
         header = headerView
 
         let editorView = surface.view
         editorView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: bounds.height - headerHeight)
         editorView.autoresizingMask = [.width, .height]
-        clipView.addSubview(editorView)
+        card.addSubview(editorView)
 
         applyFocusState(true)
         delegate = self
@@ -85,11 +63,35 @@ final class StickyPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
+    private var cmdDragOrigin: NSPoint?
+    private var cmdWindowOrigin: NSPoint?
+
+    override func sendEvent(_ event: NSEvent) {
+        switch event.type {
+        case .leftMouseDown where event.modifierFlags.contains(.command):
+            cmdDragOrigin = NSEvent.mouseLocation
+            cmdWindowOrigin = frame.origin
+            return
+        case .leftMouseDragged where cmdDragOrigin != nil:
+            let now = NSEvent.mouseLocation
+            setFrameOrigin(NSPoint(
+                x: cmdWindowOrigin!.x + (now.x - cmdDragOrigin!.x),
+                y: cmdWindowOrigin!.y + (now.y - cmdDragOrigin!.y)
+            ))
+            return
+        case .leftMouseUp where cmdDragOrigin != nil:
+            cmdDragOrigin = nil
+            cmdWindowOrigin = nil
+            onFrameChanged?(frame)
+            return
+        default:
+            break
+        }
+        super.sendEvent(event)
+    }
+
     private func applyFocusState(_ focused: Bool) {
-        clipView.layer?.backgroundColor = NSColor.textBackgroundColor
-            .withAlphaComponent(focused ? 0.98 : 0.86).cgColor
-        clipView.layer?.borderWidth = focused ? 2.5 : 0
-        cardView.layer?.shadowOpacity = focused ? 0.85 : 0
+        card.focusedState = focused
     }
 
     private static let numberKeyCodes: [UInt16: Int] = [
@@ -108,11 +110,42 @@ final class StickyPanel: NSPanel {
         case "w": onClose?(); return true
         case "n": onNewNote?(); return true
         case "o": onQuickOpen?(); return true
+        case "k": toggleMetadata(); return true
         default: return super.performKeyEquivalent(with: event)
         }
     }
 
+    private func toggleMetadata() {
+        if let overlay, !overlay.isHidden {
+            dismissMetadata()
+            return
+        }
+        guard let note = currentNote else { return }
+        let view = overlay ?? makeOverlay()
+        view.present(
+            metadata: note.metadata,
+            groups: onRequestGroups?() ?? [],
+            filePath: onFilePath?() ?? ""
+        )
+    }
+
+    private func makeOverlay() -> MetadataOverlay {
+        let view = MetadataOverlay(frame: card.bounds)
+        view.autoresizingMask = [.width, .height]
+        view.onCommit = { [weak self] meta in self?.onMetadataCommit?(meta) }
+        view.onClose = { [weak self] in self?.dismissMetadata() }
+        card.addSubview(view)
+        overlay = view
+        return view
+    }
+
+    private func dismissMetadata() {
+        overlay?.isHidden = true
+        editorSurface.focus()
+    }
+
     func update(note: Note) {
+        currentNote = note
         header?.configure(
             icon: note.metadata.icon,
             title: NoteDisplay.title(for: note),

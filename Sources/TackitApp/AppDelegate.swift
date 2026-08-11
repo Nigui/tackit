@@ -136,6 +136,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.onQuickOpen = { [weak self] in self?.openQuickOpen() }
         panel.onSwitchTo = { [weak self] number in self?.switchTo(number) }
         panel.onFrameChanged = { [weak self] frame in self?.windowState.save(frame, for: note.id) }
+        panel.onRequestGroups = { [weak self] in self?.allGroups() ?? [] }
+        panel.onFilePath = { [weak self] in self?.store?.fileURL(for: note.id).path ?? "" }
+        panel.onMetadataCommit = { [weak self] meta in self?.applyMetadata(id: note.id, meta: meta) }
         if let saved = windowState.frame(for: note.id) {
             panel.setFrame(saved, display: false)
         } else {
@@ -149,6 +152,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         Diag.log("openNewSticky note=\(note.id) index=\(index) visible=\(panel.isVisible)")
         metrics.printMemory(context: "\(panels.count) sticky(ies) open")
+    }
+
+    private func allGroups() -> [String] {
+        let notes = (try? store?.loadAll()) ?? []
+        let groups = Set(notes.compactMap { $0.metadata.group }.filter { !$0.isEmpty })
+        return groups.sorted()
+    }
+
+    private func applyMetadata(id: UUID, meta: NoteMetadata) {
+        guard var note = openNotes[id] else { return }
+        var updated = meta
+        updated.createdAt = note.metadata.createdAt
+        updated.updatedAt = Date()
+        note.metadata = updated
+        openNotes[id] = note
+        panels.first(where: { $0.noteId == id })?.update(note: note)
+        searchIndex.upsert(note)
+        scheduleSave(id)
     }
 
     private func handleDocChanged(id: UUID, markdown: String) {

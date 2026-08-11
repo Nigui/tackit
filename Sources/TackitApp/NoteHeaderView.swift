@@ -30,22 +30,25 @@ final class NoteHeaderView: NSView {
         iconCard.layer?.backgroundColor = NSColor(white: 0.5, alpha: 0.14).cgColor
         iconCard.translatesAutoresizingMaskIntoConstraints = false
         iconCard.addSubview(iconLabel)
+        addSubview(iconCard)
 
-        titleLabel.font = .systemFont(ofSize: 19, weight: .semibold)
         titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.cell?.truncatesLastVisibleLine = true
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        titleLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
         descriptionLabel.font = .systemFont(ofSize: 12)
         descriptionLabel.textColor = .secondaryLabelColor
         descriptionLabel.lineBreakMode = .byTruncatingTail
+        descriptionLabel.cell?.truncatesLastVisibleLine = true
+        descriptionLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        descriptionLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
         let titleStack = NSStackView(views: [titleLabel, descriptionLabel])
         titleStack.orientation = .vertical
         titleStack.alignment = .leading
-        titleStack.spacing = 3
-
-        let topRow = NSStackView(views: [iconCard, titleStack])
-        topRow.orientation = .horizontal
-        topRow.alignment = .centerY
-        topRow.spacing = 12
+        titleStack.spacing = 2
+        titleStack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(titleStack)
 
         categoryLabel.font = .systemFont(ofSize: 11, weight: .medium)
         categoryLabel.textColor = .secondaryLabelColor
@@ -61,32 +64,49 @@ final class NoteHeaderView: NSView {
         tagsLabel.font = .systemFont(ofSize: 11)
         tagsLabel.textColor = .tertiaryLabelColor
         tagsLabel.lineBreakMode = .byTruncatingTail
+        tagsLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let metaRow = NSStackView(views: [categoryPill, tagsLabel])
         metaRow.orientation = .horizontal
         metaRow.alignment = .centerY
         metaRow.spacing = 10
+        metaRow.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(metaRow)
 
-        let stack = NSStackView(views: [topRow, metaRow])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
+        let separator = NSBox()
+        separator.boxType = .separator
+        separator.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(separator)
+
+        let metaTopFromIcon = metaRow.topAnchor.constraint(greaterThanOrEqualTo: iconCard.bottomAnchor, constant: 10)
+        let metaTopFromTitle = metaRow.topAnchor.constraint(greaterThanOrEqualTo: titleStack.bottomAnchor, constant: 10)
 
         NSLayoutConstraint.activate([
             iconCard.widthAnchor.constraint(equalToConstant: 40),
             iconCard.heightAnchor.constraint(equalToConstant: 40),
+            iconCard.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 18),
+            iconCard.topAnchor.constraint(equalTo: topAnchor, constant: 14),
             iconLabel.centerXAnchor.constraint(equalTo: iconCard.centerXAnchor),
             iconLabel.centerYAnchor.constraint(equalTo: iconCard.centerYAnchor),
+
+            titleStack.leadingAnchor.constraint(equalTo: iconCard.trailingAnchor, constant: 12),
+            titleStack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -18),
+            titleStack.centerYAnchor.constraint(equalTo: iconCard.centerYAnchor),
+
             categoryLabel.leadingAnchor.constraint(equalTo: categoryPill.leadingAnchor, constant: 8),
             categoryLabel.trailingAnchor.constraint(equalTo: categoryPill.trailingAnchor, constant: -8),
             categoryLabel.topAnchor.constraint(equalTo: categoryPill.topAnchor, constant: 3),
             categoryLabel.bottomAnchor.constraint(equalTo: categoryPill.bottomAnchor, constant: -3),
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -20),
-            stack.topAnchor.constraint(equalTo: topAnchor, constant: 20),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -16),
+
+            metaTopFromIcon,
+            metaTopFromTitle,
+            metaRow.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 18),
+            metaRow.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -18),
+            metaRow.bottomAnchor.constraint(equalTo: separator.topAnchor, constant: -10),
+
+            separator.leadingAnchor.constraint(equalTo: leadingAnchor),
+            separator.trailingAnchor.constraint(equalTo: trailingAnchor),
+            separator.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
     }
 
@@ -97,7 +117,9 @@ final class NoteHeaderView: NSView {
         let hasDescription = !description.isEmpty
         titleLabel.font = .systemFont(ofSize: hasDescription ? 14 : 19, weight: .semibold)
         titleLabel.stringValue = title
+        titleLabel.toolTip = title
         descriptionLabel.stringValue = description
+        descriptionLabel.toolTip = description
         descriptionLabel.isHidden = !hasDescription
         categoryLabel.stringValue = category
         tagsLabel.stringValue = tags.map { "#\($0)" }.joined(separator: " ")
