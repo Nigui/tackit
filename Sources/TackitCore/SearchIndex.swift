@@ -74,9 +74,8 @@ public final class InMemorySearchIndex: SearchIndex {
         if !note.metadata.title.isEmpty { return note.metadata.title }
         let firstLine = note.body.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? ""
         var trimmed = firstLine.trimmingCharacters(in: .whitespaces)
-        while trimmed.hasPrefix("#") || trimmed.hasPrefix(" ") {
-            trimmed.removeFirst()
-        }
+        while trimmed.hasPrefix("#") { trimmed.removeFirst() }
+        trimmed = trimmed.trimmingCharacters(in: .whitespaces)
         return trimmed.isEmpty ? "Untitled" : String(trimmed.prefix(80))
     }
 
