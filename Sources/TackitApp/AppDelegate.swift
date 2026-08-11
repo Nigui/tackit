@@ -12,6 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var store: NoteStore?
     private var openNotes: [UUID: Note] = [:]
     private var saveWork: [UUID: DispatchWorkItem] = [:]
+    private let searchIndex = InMemorySearchIndex()
+    private lazy var quickOpen = QuickOpenController(index: searchIndex)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Diag.log("launch: applicationDidFinishLaunching")
@@ -35,6 +37,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pool = EditorSurfacePool(size: 3)
         pool.warmUp()
         metrics.printMemory(context: "launch")
+
+        quickOpen.onOpen = { [weak self] id in self?.openNote(id: id) }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -58,6 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.title = "📌"
         let menu = NSMenu()
         menu.addItem(withTitle: "New Sticky", action: #selector(menuNewSticky), keyEquivalent: "")
+        menu.addItem(withTitle: "Quick Open…", action: #selector(menuQuickOpen), keyEquivalent: "o")
         menu.addItem(withTitle: "Show / Hide All", action: #selector(menuToggle), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Tackit", action: #selector(menuQuit), keyEquivalent: "q")
@@ -68,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func menuNewSticky() { openNewSticky() }
+    @objc private func menuQuickOpen() { openQuickOpen() }
     @objc private func menuToggle() { toggleStickies() }
     @objc private func menuQuit() { NSApp.terminate(nil) }
 
@@ -126,6 +132,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.closeSticky(panel)
         }
         panel.onNewNote = { [weak self] in self?.openNewSticky() }
+        panel.onQuickOpen = { [weak self] in self?.openQuickOpen() }
+        panel.onSwitchTo = { [weak self] number in self?.switchTo(number) }
         panel.placeTopRight(offsetIndex: index)
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
@@ -163,6 +171,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let top = panels.last else { return }
         top.makeKeyAndOrderFront(nil)
         top.editorSurface.focus()
+    }
+
+    private func openQuickOpen() {
+        let notes = (try? store?.loadAll()) ?? []
+        quickOpen.show(notes: notes)
+    }
+
+    private func switchTo(_ number: Int) {
+        let visible = panels.filter { $0.isVisible }
+        guard (1...visible.count).contains(number) else { return }
+        let target = visible[number - 1]
+        target.makeKeyAndOrderFront(nil)
+        target.orderFrontRegardless()
+        target.editorSurface.focus()
+    }
+
+    private func openNote(id: UUID) {
+        if let existing = panels.first(where: { $0.noteId == id }) {
+            existing.makeKeyAndOrderFront(nil)
+            existing.orderFrontRegardless()
+            NSApp.activate(ignoringOtherApps: true)
+            existing.editorSurface.focus()
+            return
+        }
+        guard let note = try? store?.load(id: id) else { return }
+        openNewSticky(existing: note)
     }
 
     private func closeSticky(_ panel: StickyPanel) {

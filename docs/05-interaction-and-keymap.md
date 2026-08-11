@@ -50,7 +50,7 @@ The app is a set of **Apple Stickies-style floating note windows**. Each note is
 | Quick-open / search notes | **⌘O** | Find & open ANY note. `Return` = open in current top window; `⌘Return` = open in a new sticky. |
 | Close note (stays on disk) | **⌘W** | Removes the sticky from the open set; the note file is untouched. Reopen via quick-open. |
 | Delete note (from disk) | **⌘K → Delete** | Palette/action-menu only, with confirm + undo. No destructive raw hotkey. |
-| Switch between open stickies | **⌘1–9** | By recency/position; most-recent on top. |
+| Switch to sticky N | **⌘1–9** (physical number keys, no Shift) | Direct jump to the Nth open sticky. Matched by physical keycode so AZERTY works without Shift — avoids the ⌘⇧3/4/5 screenshot clash. User-rebindable in a later iteration. |
 | Metadata / icon / group / tags / pin | **⌘K → …** | Via the action menu; opens the config overlay where relevant. |
 
 There is **no** "hide a single sticky" action — the only per-note removal is **Close** (⌘W). Global show/hide-all is the way to clear the screen.

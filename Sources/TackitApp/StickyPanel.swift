@@ -12,6 +12,8 @@ final class StickyPanel: NSPanel {
     let noteId: UUID
     var onClose: (() -> Void)?
     var onNewNote: (() -> Void)?
+    var onQuickOpen: (() -> Void)?
+    var onSwitchTo: ((Int) -> Void)?
     private let headerHeight: CGFloat = 22
 
     init(surface: EditorSurface, index: Int, noteId: UUID) {
@@ -59,13 +61,22 @@ final class StickyPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
+    private static let numberKeyCodes: [UInt16: Int] = [
+        18: 1, 19: 2, 20: 3, 21: 4, 23: 5, 22: 6, 26: 7, 28: 8, 25: 9,
+    ]
+
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard event.modifierFlags.contains(.command) else {
             return super.performKeyEquivalent(with: event)
         }
+        if !event.modifierFlags.contains(.shift), let number = StickyPanel.numberKeyCodes[event.keyCode] {
+            onSwitchTo?(number)
+            return true
+        }
         switch event.charactersIgnoringModifiers?.lowercased() {
         case "w": onClose?(); return true
         case "n": onNewNote?(); return true
+        case "o": onQuickOpen?(); return true
         default: return super.performKeyEquivalent(with: event)
         }
     }
