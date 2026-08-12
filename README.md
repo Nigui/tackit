@@ -2,47 +2,69 @@
 
 An extremely fast, keyboard-driven, local-first note app for macOS — Apple Stickies ergonomics with a modern editor. Pin a thought in under a second, keep it always-on-top, never lose it.
 
-> Status: **M0 proof-of-concept.** This milestone exists to answer one question: does hotkey → borderless always-on-top sticky → typing feel instant (< 300 ms), using a pooled WKWebView editor, at an acceptable memory cost? See `docs/06-implementation-plan.md`.
+> Status: **M1 — local MVP.** Notes persist as plain Markdown files, full-text search, a ⌘K action menu, per-note metadata, and configurable shortcuts. Cloud sync and iOS come later (see `docs/03-roadmap.md`).
 
-## What M0 proves
+## Features
 
-- Global hotkey **⌘⇧.** opens a borderless, non-activating, always-on-top sticky (top-right, resizable, frame persisted).
-- The editor surface is **TipTap (ProseMirror)** running in a **pre-warmed WKWebView pool**, not one webview per window.
-- It prints objective **latency** (hotkey → editor ready; keystroke → paint) and **memory** (physical footprint) numbers so the go/no-go is data-driven.
+- **Global hotkey** (default **⌘⇧.**, rebindable) shows/hides your floating, always-on-top stickies.
+- **Borderless Stickies-style windows** — no chrome; per-note size and position persist.
+- **Markdown editor** (TipTap/ProseMirror in a pooled WKWebView); notes are stored as **Markdown + YAML frontmatter** files you can edit in any editor.
+- **⌘K action menu** — configure note, search, new, close, delete (confirm + undo).
+- **⌘O in-sticky search** across all notes; **⌘E** metadata (icon, title, description, group typeahead, tags).
+- **Settings** — default size, 3×3 placement, always-on-top, open-at-login, and rebindable shortcuts.
+- **⌘1–9** to jump between open stickies (AZERTY-safe).
 
-## Requirements
+## Install
 
-- macOS 14+ on Apple Silicon
-- Xcode 26 toolchain (`swift`, `swiftc`)
-- Node 20+ and `pnpm`
-
-## Run it
-
-```sh
-./scripts/run.sh
-```
-
-This builds the TipTap editor bundle, compiles the Swift app, wraps it in a real `.app`, and launches it as a menu-bar agent (no Dock icon). Then:
-
-1. Press **⌘⇧.** anywhere to open a sticky. Press again to hide all.
-2. Type. Press ⌘⇧. again to open more stickies (they stack top-right).
-3. Read the numbers:
+Once a tap is published:
 
 ```sh
-log stream --predicate 'eventMessage CONTAINS "[Tackit]"' --style compact
+brew install --cask tackit
 ```
 
-Look for `readiness (hotkey->editor focused)`, `keystroke input->paint`, and `memory (phys_footprint)`. Hand those back to decide M0 go/no-go.
+Or download the signed `.dmg` from [Releases](../../releases) and drag Tackit to Applications. It runs as a menu-bar agent (📌) with no Dock icon.
+
+## Build from source
+
+Requirements: macOS 14+ (Apple Silicon), the Xcode 26 toolchain (`swift`), Node 20+ and `pnpm`.
+
+```sh
+./scripts/run.sh      # build editor bundle + Swift app, assemble the .app, launch it
+```
+
+Then press **⌘⇧.** to open a sticky. See `docs/05-interaction-and-keymap.md` for the full keymap.
+
+## Test
+
+```sh
+swift test                 # TackitCore units (frontmatter, store, search, models)
+cd editor && pnpm test     # md↔ProseMirror golden + fuzz + sanitization (vitest)
+```
+
+CI runs both on every push/PR (`.github/workflows/ci.yml`).
+
+## Package & release
+
+```sh
+./scripts/package.sh       # release .app + .dmg (signs + notarizes when creds are set)
+```
+
+See `docs/08-packaging-and-release.md` for signing, notarization, and the Homebrew cask.
 
 ## Layout
 
 ```
-core/ ................ (TackitCore) UI-agnostic model/store — grows into the reusable iOS core
-Sources/TackitCore ... Swift package: models (Note, ...)
-Sources/TackitApp .... macOS spike: NSPanel window layer, webview pool, hotkey, metrics
-editor/ .............. TypeScript + TipTap editor bundle (esbuild)
+Sources/TackitCore ... UI-agnostic core: models, document format, note store, search
+Sources/TackitApp .... macOS app: window/panel layer, editor surface, ⌘K/overlays, settings, hotkey
+editor/ .............. TypeScript + TipTap editor bundle (esbuild) + vitest
+Tests/ ............... TackitCore unit tests
+packaging/ ........... Info.plist, entitlements, icon, Homebrew cask
 docs/ ................ product + engineering docs (research, PRD, roadmap, architecture, interaction, plan)
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Product/UX decisions require the owner's sign-off — read the "Product decisions" rule in `CLAUDE.md` first.
 
 ## License
 
