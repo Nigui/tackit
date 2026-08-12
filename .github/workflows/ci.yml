@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  swift:
+    name: Swift (build + test)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift version
+        run: swift --version
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test
+
+  editor:
+    name: Editor (build + vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: editor/pnpm-lock.yaml
+      - name: Install
+        working-directory: editor
+        run: pnpm install --frozen-lockfile
+      - name: Build bundle
+        working-directory: editor
+        run: pnpm build
+      - name: Vitest (golden + fuzz + sanitization)
+        working-directory: editor
+        run: pnpm test
+
+# Deferred (need the signed .app / Xcode UI-test target from M1.5):
+#  - H3 XCUITest end-to-end (hotkey -> type -> persist -> relaunch)
+#  - H4 <300 ms first-keystroke latency gate + memory smoke
