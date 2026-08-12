@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Developer ID + hardened runtime, intentionally NOT sandboxed:
+        - Carbon global hotkey (RegisterEventHotKey) is not available under the sandbox.
+        - Direct file access to ~/Library/Application Support/Tackit for the note store.
+      The WKWebView content process is signed separately by Apple and needs no JIT
+      entitlement in the host. Keep this dict empty unless a capability requires a key.
+    -->
+</dict>
+</plist>

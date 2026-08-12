@@ -4,13 +4,16 @@
 <dict>
     <key>CFBundleName</key><string>Tackit</string>
     <key>CFBundleDisplayName</key><string>Tackit</string>
-    <key>CFBundleIdentifier</key><string>com.example.tackit</string>
+    <key>CFBundleIdentifier</key><string>app.tackit.mac</string>
     <key>CFBundleExecutable</key><string>tackit</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>0.0.1</string>
     <key>CFBundleVersion</key><string>1</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
+    <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
+    <key>NSHumanReadableCopyright</key><string>MIT License. See LICENSE.</string>
 </dict>
 </plist>

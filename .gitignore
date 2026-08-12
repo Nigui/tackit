@@ -2,6 +2,8 @@
 .build/
 .swiftpm/
 build/
+dist/
+packaging/AppIcon.iconset/
 editor/node_modules/
 editor/dist/
 .DS_Store
