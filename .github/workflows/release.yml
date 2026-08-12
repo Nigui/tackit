@@ -1,7 +1,9 @@
 name: Release
 
-# Push a tag like v0.0.1 to build, sign, notarize, and publish a DMG.
-# Requires these repo secrets:
+# Push a tag like v0.0.1 to build and publish a DMG.
+#
+# Without signing secrets it publishes an UNSIGNED pre-release (Gatekeeper will
+# warn on other Macs). Add these repo secrets to get a signed + notarized release:
 #   MACOS_CERT_P12          base64 of the Developer ID Application .p12
 #   MACOS_CERT_PASSWORD     password for that .p12
 #   MACOS_KEYCHAIN_PASSWORD any throwaway password for the temp keychain
@@ -17,6 +19,9 @@ on:
 permissions:
   contents: write
 
+env:
+  SIGNED: ${{ secrets.SIGN_IDENTITY != '' }}
+
 jobs:
   release:
     runs-on: macos-14
@@ -31,6 +36,7 @@ jobs:
           node-version: 20
 
       - name: Import signing certificate
+        if: ${{ env.SIGNED == 'true' }}
         env:
           MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
           MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
@@ -47,22 +53,25 @@ jobs:
           rm -f cert.p12
 
       - name: Store notarization credentials
+        if: ${{ env.SIGNED == 'true' }}
         env:
-          NOTARY_PROFILE: tackit-notary
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          xcrun notarytool store-credentials "$NOTARY_PROFILE" \
+          xcrun notarytool store-credentials tackit-notary \
             --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD"
 
-      - name: Build, sign, notarize
+      - name: Build (sign + notarize when configured)
         env:
           SIGN_IDENTITY: ${{ secrets.SIGN_IDENTITY }}
-          NOTARY_PROFILE: tackit-notary
+          NOTARY_PROFILE: ${{ env.SIGNED == 'true' && 'tackit-notary' || '' }}
         run: ./scripts/package.sh
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" dist/Tackit.dmg --title "${GITHUB_REF_NAME}" --generate-notes
+        run: |
+          flags=(--generate-notes)
+          if [ "$SIGNED" != "true" ]; then flags+=(--prerelease); fi
+          gh release create "${GITHUB_REF_NAME}" dist/Tackit.dmg --title "${GITHUB_REF_NAME}" "${flags[@]}"

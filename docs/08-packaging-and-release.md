@@ -49,6 +49,52 @@ and creates a GitHub release with the DMG. It needs these repo secrets:
 Copy `packaging/tackit.rb` into a tap repo, set `OWNER/REPO`, bump `version`, and
 paste the DMG `sha256`. Then `brew install --cask tackit`.
 
+## CI release checklist
+
+The `release.yml` workflow degrades gracefully: a tag with **no** signing secrets
+publishes an **unsigned pre-release**; once the secrets exist it publishes a
+**signed + notarized** release. Steps, in order:
+
+### 1. Put the repo on GitHub (one-time)
+
+> Do the "Tackit" trademark spot-check and confirm you want it public first.
+
+```sh
+git remote add origin git@github.com:OWNER/tackit.git
+git push -u origin main
+```
+
+### 2. Signing secrets (one-time — needs an Apple Developer Program membership)
+
+1. Create a **Developer ID Application** certificate (Xcode → Settings → Accounts →
+   your team → Manage Certificates → + → Developer ID Application).
+2. Export it **with its private key** from Keychain Access as `Certificates.p12`, then:
+   ```sh
+   base64 -i Certificates.p12 | pbcopy      # → paste into the MACOS_CERT_P12 secret
+   ```
+3. Create an **app-specific password** at appleid.apple.com → Sign-In & Security.
+4. In GitHub → Settings → Secrets and variables → Actions, add:
+   `MACOS_CERT_P12`, `MACOS_CERT_PASSWORD`, `MACOS_KEYCHAIN_PASSWORD`,
+   `SIGN_IDENTITY` (`Developer ID Application: Name (TEAMID)`), `APPLE_ID`,
+   `APPLE_TEAM_ID`, `APPLE_APP_PASSWORD`.
+
+### 3. Cut a release
+
+```sh
+git tag v0.0.1
+git push origin v0.0.1
+```
+
+The workflow builds, (signs + notarizes when secrets are set), and publishes the
+DMG to a GitHub release. Then update `packaging/tackit.rb` (`OWNER/REPO`, version,
+DMG `sha256`) in your Homebrew tap.
+
+### Unsigned pre-release right now
+
+Push a tag **without** the signing secrets → the workflow publishes an unsigned
+`Tackit.dmg` marked as a pre-release, so you can exercise the whole pipeline and
+share a test build before enrolling. (Testers open it via right-click → Open.)
+
 ## Deferred to a later pass
 
 - Sparkle auto-update (appcast + EdDSA) — cask would gain `auto_updates true`.
