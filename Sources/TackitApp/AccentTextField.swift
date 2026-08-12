@@ -33,17 +33,24 @@ final class AccentTextField: NSTextField {
         paddedCell.isScrollable = true
         paddedCell.wraps = false
         paddedCell.usesSingleLineMode = true
-        paddedCell.placeholderString = placeholder
+        paddedCell.placeholderAttributedString = NSAttributedString(
+            string: placeholder,
+            attributes: [
+                .foregroundColor: Theme.overlayPlaceholder,
+                .font: NSFont.systemFont(ofSize: 13),
+            ]
+        )
         cell = paddedCell
 
         font = .systemFont(ofSize: 13)
+        textColor = Theme.onOverlay
         focusRingType = .none
         drawsBackground = false
         wantsLayer = true
         layer?.cornerRadius = 6
         layer?.borderWidth = 1
-        layer?.borderColor = NSColor.separatorColor.cgColor
-        layer?.backgroundColor = NSColor.textBackgroundColor.withAlphaComponent(0.6).cgColor
+        layer?.borderColor = Theme.overlayFieldBorder.cgColor
+        layer?.backgroundColor = Theme.overlayField.cgColor
         setContentHuggingPriority(.defaultLow, for: .horizontal)
         setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
     }
@@ -66,7 +73,7 @@ final class AccentTextField: NSTextField {
     }
 
     private func setFocused(_ focused: Bool) {
-        layer?.borderColor = focused ? Theme.accent.cgColor : NSColor.separatorColor.cgColor
+        layer?.borderColor = focused ? Theme.overlayFocus.cgColor : Theme.overlayFieldBorder.cgColor
         layer?.borderWidth = focused ? 2 : 1
     }
 }

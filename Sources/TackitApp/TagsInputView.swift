@@ -6,12 +6,12 @@ final class TagPill: NSButton {
         isBordered = false
         wantsLayer = true
         layer?.cornerRadius = 9
-        layer?.backgroundColor = Theme.accent.withAlphaComponent(0.9).cgColor
+        layer?.backgroundColor = Theme.overlayFocus.cgColor
         attributedTitle = NSAttributedString(
             string: "#\(tag)  ✕",
             attributes: [
                 .font: NSFont.systemFont(ofSize: 11, weight: .medium),
-                .foregroundColor: NSColor.black.withAlphaComponent(0.8),
+                .foregroundColor: NSColor.white.withAlphaComponent(0.92),
             ]
         )
     }
@@ -47,7 +47,14 @@ final class TagsInputView: NSView {
         input.drawsBackground = false
         input.focusRingType = .none
         input.font = .systemFont(ofSize: 12)
-        input.placeholderString = "add tag…"
+        input.textColor = Theme.onOverlay
+        input.placeholderAttributedString = NSAttributedString(
+            string: "add tag…",
+            attributes: [
+                .foregroundColor: Theme.overlayPlaceholder,
+                .font: NSFont.systemFont(ofSize: 12),
+            ]
+        )
         input.delegate = self
         input.translatesAutoresizingMaskIntoConstraints = false
         addSubview(input)

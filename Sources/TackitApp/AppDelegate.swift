@@ -13,8 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var openNotes: [UUID: Note] = [:]
     private var saveWork: [UUID: DispatchWorkItem] = [:]
     private let searchIndex = InMemorySearchIndex()
-    private lazy var quickOpen = QuickOpenController(index: searchIndex)
     private let windowState = WindowStateStore()
+    private let undoToast = UndoToast()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Diag.log("launch: applicationDidFinishLaunching")
@@ -38,8 +38,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pool = EditorSurfacePool(size: 3)
         pool.warmUp()
         metrics.printMemory(context: "launch")
-
-        quickOpen.onOpen = { [weak self] id in self?.openNote(id: id) }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -63,7 +61,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.title = "📌"
         let menu = NSMenu()
         menu.addItem(withTitle: "New Sticky", action: #selector(menuNewSticky), keyEquivalent: "")
-        menu.addItem(withTitle: "Quick Open…", action: #selector(menuQuickOpen), keyEquivalent: "o")
         menu.addItem(withTitle: "Show / Hide All", action: #selector(menuToggle), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Tackit", action: #selector(menuQuit), keyEquivalent: "q")
@@ -74,7 +71,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func menuNewSticky() { openNewSticky() }
-    @objc private func menuQuickOpen() { openQuickOpen() }
     @objc private func menuToggle() { toggleStickies() }
     @objc private func menuQuit() { NSApp.terminate(nil) }
 
@@ -133,12 +129,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.closeSticky(panel)
         }
         panel.onNewNote = { [weak self] in self?.openNewSticky() }
-        panel.onQuickOpen = { [weak self] in self?.openQuickOpen() }
         panel.onSwitchTo = { [weak self] number in self?.switchTo(number) }
         panel.onFrameChanged = { [weak self] frame in self?.windowState.save(frame, for: note.id) }
         panel.onRequestGroups = { [weak self] in self?.allGroups() ?? [] }
         panel.onFilePath = { [weak self] in self?.store?.fileURL(for: note.id).path ?? "" }
         panel.onMetadataCommit = { [weak self] meta in self?.applyMetadata(id: note.id, meta: meta) }
+        panel.onDelete = { [weak self] in self?.requestDelete(id: note.id) }
+        panel.onSearch = { [weak self] query in self?.searchNotes(query) ?? [] }
+        panel.onOpenNote = { [weak self, weak panel] id, inNewPanel in
+            self?.openFromSearch(selectedId: id, from: panel, inNewPanel: inNewPanel)
+        }
         if let saved = windowState.frame(for: note.id) {
             panel.setFrame(saved, display: false)
         } else {
@@ -152,6 +152,100 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         Diag.log("openNewSticky note=\(note.id) index=\(index) visible=\(panel.isVisible)")
         metrics.printMemory(context: "\(panels.count) sticky(ies) open")
+    }
+
+    private func requestDelete(id: UUID) {
+        guard let note = openNotes[id] ?? (try? store?.load(id: id)) else { return }
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Delete this note?"
+        alert.informativeText = "“\(NoteDisplay.title(for: note))” will be removed from disk. You can undo for a few seconds."
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        if let panel = panels.first(where: { $0.noteId == id }) {
+            closeSticky(panel)
+        }
+        try? store?.delete(id: id)
+        searchIndex.remove(id: id)
+        openNotes[id] = nil
+
+        undoToast.show(message: "Note deleted — click or ⌘Z to undo") { [weak self] in
+            guard let self else { return }
+            try? self.store?.save(note)
+            self.searchIndex.upsert(note)
+            self.openNote(id: note.id)
+        }
+    }
+
+    private func searchNotes(_ query: String) -> [NoteSearchResult] {
+        let notes = (try? store?.loadAll()) ?? []
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        let matched: [Note]
+        if q.isEmpty {
+            matched = notes
+        } else {
+            matched = notes.filter { note in
+                NoteDisplay.title(for: note).lowercased().contains(q)
+                    || note.metadata.description.lowercased().contains(q)
+                    || note.body.lowercased().contains(q)
+                    || note.metadata.tags.contains { $0.lowercased().contains(q) }
+            }
+        }
+        return matched
+            .sorted { $0.metadata.updatedAt > $1.metadata.updatedAt }
+            .prefix(50)
+            .map { note in
+                NoteSearchResult(
+                    id: note.id,
+                    icon: note.metadata.icon,
+                    title: NoteDisplay.title(for: note),
+                    description: note.metadata.description,
+                    updatedAt: note.metadata.updatedAt
+                )
+            }
+    }
+
+    private func openFromSearch(selectedId: UUID, from currentPanel: StickyPanel?, inNewPanel: Bool) {
+        if inNewPanel {
+            openNote(id: selectedId)
+            return
+        }
+        guard let currentPanel else { openNote(id: selectedId); return }
+        if selectedId == currentPanel.noteId { return }
+        if let other = panels.first(where: { $0.noteId == selectedId }) {
+            other.makeKeyAndOrderFront(nil)
+            other.orderFrontRegardless()
+            NSApp.activate(ignoringOtherApps: true)
+            other.editorSurface.focus()
+            return
+        }
+        guard let selected = try? store?.load(id: selectedId) else { return }
+        let oldId = currentPanel.noteId
+        saveWork[oldId]?.cancel()
+        if let oldNote = openNotes[oldId] { try? store?.save(oldNote) }
+        openNotes[oldId] = nil
+        openNotes[selectedId] = selected
+        rebind(panel: currentPanel, to: selected)
+    }
+
+    private func rebind(panel: StickyPanel, to note: Note) {
+        panel.rebind(noteId: note.id)
+        let surface = panel.editorSurface
+        surface.onDocChanged = { [weak self] markdown in self?.handleDocChanged(id: note.id, markdown: markdown) }
+        panel.onFrameChanged = { [weak self] frame in self?.windowState.save(frame, for: note.id) }
+        panel.onFilePath = { [weak self] in self?.store?.fileURL(for: note.id).path ?? "" }
+        panel.onMetadataCommit = { [weak self] meta in self?.applyMetadata(id: note.id, meta: meta) }
+        panel.onDelete = { [weak self] in self?.requestDelete(id: note.id) }
+        panel.onOpenNote = { [weak self, weak panel] id, inNewPanel in
+            self?.openFromSearch(selectedId: id, from: panel, inNewPanel: inNewPanel)
+        }
+        windowState.save(panel.frame, for: note.id)
+        surface.load(markdown: note.body)
+        panel.update(note: note)
+        surface.focus()
     }
 
     private func allGroups() -> [String] {
@@ -199,11 +293,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let top = panels.last else { return }
         top.makeKeyAndOrderFront(nil)
         top.editorSurface.focus()
-    }
-
-    private func openQuickOpen() {
-        let notes = (try? store?.loadAll()) ?? []
-        quickOpen.show(notes: notes)
     }
 
     private func switchTo(_ number: Int) {

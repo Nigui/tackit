@@ -3,20 +3,26 @@ import TackitCore
 
 final class StickyPanel: NSPanel {
     let editorSurface: EditorSurface
-    let noteId: UUID
+    private(set) var noteId: UUID
     var onClose: (() -> Void)?
     var onNewNote: (() -> Void)?
-    var onQuickOpen: (() -> Void)?
     var onSwitchTo: ((Int) -> Void)?
     var onFrameChanged: ((NSRect) -> Void)?
     var onRequestGroups: (() -> [String])?
     var onFilePath: (() -> String)?
     var onMetadataCommit: ((NoteMetadata) -> Void)?
+    var onDelete: (() -> Void)?
+    var onSearch: ((String) -> [NoteSearchResult])?
+    var onOpenNote: ((UUID, Bool) -> Void)?
     private var header: NoteHeaderView?
+    private var footer: NoteFooterView?
     private var currentNote: Note?
     private var overlay: MetadataOverlay?
+    private var actionMenu: ActionMenuOverlay?
+    private var searchOverlay: SearchOverlay?
     private let card = CardView()
     private let headerHeight: CGFloat = 96
+    private let footerHeight: CGFloat = 32
 
     init(surface: EditorSurface, index: Int, noteId: UUID) {
         self.editorSurface = surface
@@ -52,9 +58,15 @@ final class StickyPanel: NSPanel {
         header = headerView
 
         let editorView = surface.view
-        editorView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: bounds.height - headerHeight)
+        editorView.frame = NSRect(x: 0, y: footerHeight, width: bounds.width, height: bounds.height - headerHeight - footerHeight)
         editorView.autoresizingMask = [.width, .height]
         card.addSubview(editorView)
+
+        let footerView = NoteFooterView()
+        footerView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: footerHeight)
+        footerView.autoresizingMask = [.width, .maxYMargin]
+        card.addSubview(footerView)
+        footer = footerView
 
         applyFocusState(true)
         delegate = self
@@ -106,27 +118,75 @@ final class StickyPanel: NSPanel {
             onSwitchTo?(number)
             return true
         }
+        if event.keyCode == 51 {
+            onDelete?()
+            return true
+        }
         switch event.charactersIgnoringModifiers?.lowercased() {
         case "w": onClose?(); return true
         case "n": onNewNote?(); return true
-        case "o": onQuickOpen?(); return true
-        case "k": toggleMetadata(); return true
+        case "o": toggleSearch(); return true
+        case "k": handleCommandK(); return true
+        case "e": showMetadata(focus: .title); return true
         default: return super.performKeyEquivalent(with: event)
         }
     }
 
-    private func toggleMetadata() {
+    private func handleCommandK() {
         if let overlay, !overlay.isHidden {
             dismissMetadata()
-            return
+        } else if let actionMenu, !actionMenu.isHidden {
+            dismissActionMenu()
+        } else if let searchOverlay, !searchOverlay.isHidden {
+            dismissSearch()
+        } else {
+            showActionMenu()
         }
+    }
+
+    private func showActionMenu() {
+        dismissMetadata()
+        dismissSearch()
+        let view = actionMenu ?? makeActionMenu()
+        view.present(actions: buildActions())
+    }
+
+    private func buildActions() -> [MenuAction] {
+        [
+            MenuAction(title: "Configure note", hint: "⌘E") { [weak self] in self?.showMetadata(focus: .title) },
+            MenuAction(title: "Search notes", hint: "⌘O") { [weak self] in self?.showSearch() },
+            MenuAction(title: "New note", hint: "⌘N") { [weak self] in self?.onNewNote?() },
+            MenuAction(title: "Close note", hint: "⌘W") { [weak self] in self?.onClose?() },
+            MenuAction(title: "Delete note", hint: "⌘⌫") { [weak self] in self?.onDelete?() },
+        ]
+    }
+
+    private func showMetadata(focus: MetadataField) {
+        dismissActionMenu()
+        dismissSearch()
         guard let note = currentNote else { return }
         let view = overlay ?? makeOverlay()
         view.present(
             metadata: note.metadata,
             groups: onRequestGroups?() ?? [],
-            filePath: onFilePath?() ?? ""
+            filePath: onFilePath?() ?? "",
+            focus: focus
         )
+    }
+
+    private func toggleSearch() {
+        if let searchOverlay, !searchOverlay.isHidden {
+            dismissSearch()
+        } else {
+            showSearch()
+        }
+    }
+
+    private func showSearch() {
+        dismissMetadata()
+        dismissActionMenu()
+        let view = searchOverlay ?? makeSearchOverlay()
+        view.present()
     }
 
     private func makeOverlay() -> MetadataOverlay {
@@ -139,8 +199,38 @@ final class StickyPanel: NSPanel {
         return view
     }
 
+    private func makeActionMenu() -> ActionMenuOverlay {
+        let view = ActionMenuOverlay(frame: card.bounds)
+        view.autoresizingMask = [.width, .height]
+        view.onClose = { [weak self] in self?.dismissActionMenu() }
+        card.addSubview(view)
+        actionMenu = view
+        return view
+    }
+
+    private func makeSearchOverlay() -> SearchOverlay {
+        let view = SearchOverlay(frame: card.bounds)
+        view.autoresizingMask = [.width, .height]
+        view.onQuery = { [weak self] query in self?.onSearch?(query) ?? [] }
+        view.onOpen = { [weak self] id, inNewPanel in self?.onOpenNote?(id, inNewPanel) }
+        view.onClose = { [weak self] in self?.dismissSearch() }
+        card.addSubview(view)
+        searchOverlay = view
+        return view
+    }
+
     private func dismissMetadata() {
         overlay?.isHidden = true
+        editorSurface.focus()
+    }
+
+    private func dismissActionMenu() {
+        actionMenu?.isHidden = true
+        editorSurface.focus()
+    }
+
+    private func dismissSearch() {
+        searchOverlay?.isHidden = true
         editorSurface.focus()
     }
 
@@ -153,6 +243,11 @@ final class StickyPanel: NSPanel {
             category: NoteDisplay.category(for: note),
             tags: note.metadata.tags
         )
+        footer?.setUpdated(note.metadata.updatedAt)
+    }
+
+    func rebind(noteId: UUID) {
+        self.noteId = noteId
     }
 
     func placeTopRight(offsetIndex: Int) {

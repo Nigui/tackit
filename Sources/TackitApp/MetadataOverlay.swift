@@ -1,6 +1,10 @@
 import AppKit
 import TackitCore
 
+enum MetadataField {
+    case title, icon, group, tags
+}
+
 final class MetadataOverlay: NSVisualEffectView {
     var onCommit: ((NoteMetadata) -> Void)?
     var onClose: (() -> Void)?
@@ -28,8 +32,21 @@ final class MetadataOverlay: NSVisualEffectView {
     required init?(coder: NSCoder) { fatalError("not implemented") }
 
     private func buildUI() {
+        let scrim = NSView()
+        scrim.wantsLayer = true
+        scrim.layer?.backgroundColor = Theme.overlayBackground.cgColor
+        scrim.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(scrim)
+        NSLayoutConstraint.activate([
+            scrim.leadingAnchor.constraint(equalTo: leadingAnchor),
+            scrim.trailingAnchor.constraint(equalTo: trailingAnchor),
+            scrim.topAnchor.constraint(equalTo: topAnchor),
+            scrim.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+
         let heading = NSTextField(labelWithString: "Configure this note")
         heading.font = .systemFont(ofSize: 18, weight: .bold)
+        heading.textColor = Theme.onOverlay
         heading.translatesAutoresizingMaskIntoConstraints = false
         addSubview(heading)
 
@@ -113,7 +130,7 @@ final class MetadataOverlay: NSVisualEffectView {
     private func makeFooter() -> NSView {
         let footer = NSView()
         footer.wantsLayer = true
-        footer.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.05).cgColor
+        footer.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.10).cgColor
         footer.translatesAutoresizingMaskIntoConstraints = false
 
         let separator = NSBox()
@@ -123,7 +140,7 @@ final class MetadataOverlay: NSVisualEffectView {
 
         let hint = NSTextField(labelWithString: "⌘K or Esc to close")
         hint.font = .systemFont(ofSize: 11)
-        hint.textColor = .tertiaryLabelColor
+        hint.textColor = Theme.onOverlayTertiary
         hint.translatesAutoresizingMaskIntoConstraints = false
         footer.addSubview(hint)
 
@@ -154,7 +171,7 @@ final class MetadataOverlay: NSVisualEffectView {
             string: name,
             attributes: [
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
-                .foregroundColor: NSColor.secondaryLabelColor,
+                .foregroundColor: Theme.onOverlaySecondary,
                 .kern: 0.8,
             ]
         )
@@ -162,7 +179,7 @@ final class MetadataOverlay: NSVisualEffectView {
             string: "  " + key,
             attributes: [
                 .font: NSFont.systemFont(ofSize: 11),
-                .foregroundColor: NSColor.tertiaryLabelColor,
+                .foregroundColor: Theme.onOverlayTertiary,
             ]
         ))
         label.attributedStringValue = string
@@ -172,7 +189,7 @@ final class MetadataOverlay: NSVisualEffectView {
     private func infoRow(_ caption: String, _ value: NSTextField) -> NSStackView {
         let label = NSTextField(labelWithString: caption)
         label.font = .systemFont(ofSize: 11)
-        label.textColor = .tertiaryLabelColor
+        label.textColor = Theme.onOverlayTertiary
         label.widthAnchor.constraint(equalToConstant: 64).isActive = true
         let row = NSStackView(views: [label, value])
         row.orientation = .horizontal
@@ -185,7 +202,7 @@ final class MetadataOverlay: NSVisualEffectView {
     private static func infoValue() -> NSTextField {
         let label = NSTextField(labelWithString: "")
         label.font = .systemFont(ofSize: 11)
-        label.textColor = .secondaryLabelColor
+        label.textColor = Theme.onOverlaySecondary
         label.lineBreakMode = .byTruncatingMiddle
         label.cell?.truncatesLastVisibleLine = true
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -208,7 +225,7 @@ final class MetadataOverlay: NSVisualEffectView {
         }
     }
 
-    func present(metadata: NoteMetadata, groups: [String], filePath: String) {
+    func present(metadata: NoteMetadata, groups: [String], filePath: String, focus: MetadataField = .title) {
         meta = metadata
         iconButton.setIcon(metadata.icon)
         titleField.stringValue = metadata.title
@@ -221,7 +238,12 @@ final class MetadataOverlay: NSVisualEffectView {
         fileValue.toolTip = filePath
         isHidden = false
         layoutSubtreeIfNeeded()
-        window?.makeFirstResponder(titleField)
+        switch focus {
+        case .title: window?.makeFirstResponder(titleField)
+        case .icon: iconButton.performClick(nil)
+        case .group: window?.makeFirstResponder(groupField.textField)
+        case .tags: window?.makeFirstResponder(tagsView.textField)
+        }
     }
 
     private func commit() { onCommit?(meta) }
