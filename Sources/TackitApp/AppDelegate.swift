@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pool: EditorSurfacePool!
     private var panels: [StickyPanel] = []
     private var hotkey: GlobalHotkey?
+    private var registeredCombo: KeyCombo?
     private let metrics = LatencyMetrics()
     private var statusItem: NSStatusItem?
 
@@ -15,29 +16,72 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let searchIndex = InMemorySearchIndex()
     private let windowState = WindowStateStore()
     private let undoToast = UndoToast()
+    private let settings = SettingsStore()
+    private var settingsController: SettingsWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Diag.log("launch: applicationDidFinishLaunching")
         setupStatusItem()
         setupStore()
 
-        let dotKeyCode = KeyboardLayout.keyCode(for: ".") ?? UInt32(kVK_ANSI_Period)
-        Diag.log("resolved '.' keyCode=\(dotKeyCode) (ANSI period=\(kVK_ANSI_Period))")
-        hotkey = GlobalHotkey(
-            keyCode: dotKeyCode,
-            modifiers: UInt32(cmdKey | shiftKey)
-        ) { [weak self] in
-            Diag.log("hotkey fired (Cmd+Shift+.)")
-            self?.toggleStickies()
-        }
-        if hotkey?.isRegistered != true {
-            reportHotkeyFailure()
-        }
-        Diag.log("ready + hotkey live (pool warming async). Press Cmd+Shift+.")
+        installHotkey()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(settingsChanged),
+            name: SettingsStore.didChange,
+            object: nil
+        )
+        Diag.log("ready + hotkey live (pool warming async)")
 
         pool = EditorSurfacePool(size: 3)
         pool.warmUp()
         metrics.printMemory(context: "launch")
+    }
+
+    private func installHotkey() {
+        hotkey = nil // release the previous registration before registering the new combo
+        let combo = settings.globalHotkey
+        let newHotkey = GlobalHotkey(
+            keyCode: combo.keyCode,
+            modifiers: combo.modifiers
+        ) { [weak self] in
+            Diag.log("hotkey fired")
+            self?.toggleStickies()
+        }
+        hotkey = newHotkey
+        if newHotkey.isRegistered {
+            registeredCombo = combo
+            statusItem?.button?.title = "📌"
+        } else {
+            reportHotkeyFailure()
+        }
+    }
+
+    private func suspendHotkey() { hotkey = nil }
+    private func resumeHotkey() { installHotkey() }
+
+    @objc private func settingsChanged() {
+        if settings.globalHotkey != registeredCombo {
+            installHotkey()
+        }
+        let level: NSWindow.Level = settings.alwaysOnTop ? .floating : .normal
+        let bindings = settings.allBindings()
+        for panel in panels {
+            panel.level = level
+            panel.shortcuts = bindings
+        }
+    }
+
+    private func openSettings() {
+        if settingsController == nil {
+            settingsController = SettingsWindowController(
+                settings: settings,
+                onRecordingChange: { [weak self] recording in
+                    if recording { self?.suspendHotkey() } else { self?.resumeHotkey() }
+                }
+            )
+        }
+        settingsController?.show()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -62,6 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(withTitle: "New Sticky", action: #selector(menuNewSticky), keyEquivalent: "")
         menu.addItem(withTitle: "Show / Hide All", action: #selector(menuToggle), keyEquivalent: "")
+        menu.addItem(withTitle: "Settings…", action: #selector(menuSettings), keyEquivalent: ",")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Tackit", action: #selector(menuQuit), keyEquivalent: "q")
         for menuItem in menu.items { menuItem.target = self }
@@ -72,6 +117,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func menuNewSticky() { openNewSticky() }
     @objc private func menuToggle() { toggleStickies() }
+    @objc private func menuSettings() { openSettings() }
     @objc private func menuQuit() { NSApp.terminate(nil) }
 
     private func reportHotkeyFailure() {
@@ -81,7 +127,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "Tackit couldn’t register its global shortcut"
-        alert.informativeText = "⌘⇧. may be in use by another app. You can still open notes from the 📌 menu; a rebindable shortcut is coming."
+        alert.informativeText = "The shortcut may be in use by another app. Open notes from the 📌 menu, and set a different shortcut in Settings (⌘,)."
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }
@@ -139,10 +185,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.onOpenNote = { [weak self, weak panel] id, inNewPanel in
             self?.openFromSearch(selectedId: id, from: panel, inNewPanel: inNewPanel)
         }
+        panel.onSettings = { [weak self] in self?.openSettings() }
+        panel.shortcuts = settings.allBindings()
+        panel.level = settings.alwaysOnTop ? .floating : .normal
         if let saved = windowState.frame(for: note.id) {
             panel.setFrame(saved, display: false)
         } else {
-            panel.placeTopRight(offsetIndex: index)
+            panel.setContentSize(settings.defaultSize)
+            if let screen = NSScreen.main ?? NSScreen.screens.first {
+                let stagger = CGFloat(index) * 28
+                let origin = settings.origin(for: settings.placement, size: panel.frame.size, in: screen.visibleFrame, stagger: stagger)
+                panel.setFrameOrigin(origin)
+            }
         }
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()

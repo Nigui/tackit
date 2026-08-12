@@ -14,6 +14,8 @@ final class StickyPanel: NSPanel {
     var onDelete: (() -> Void)?
     var onSearch: ((String) -> [NoteSearchResult])?
     var onOpenNote: ((UUID, Bool) -> Void)?
+    var onSettings: (() -> Void)?
+    var shortcuts: [AppShortcut: KeyCombo] = [:]
     private var header: NoteHeaderView?
     private var footer: NoteFooterView?
     private var currentNote: Note?
@@ -122,14 +124,29 @@ final class StickyPanel: NSPanel {
             onDelete?()
             return true
         }
-        switch event.charactersIgnoringModifiers?.lowercased() {
-        case "w": onClose?(); return true
-        case "n": onNewNote?(); return true
-        case "o": toggleSearch(); return true
-        case "k": handleCommandK(); return true
-        case "e": showMetadata(focus: .title); return true
-        default: return super.performKeyEquivalent(with: event)
+        let mods = ShortcutRecorderView.carbonModifiers(from: event.modifierFlags)
+        for action in AppShortcut.allCases {
+            if let combo = shortcuts[action], combo.keyCode == UInt32(event.keyCode), combo.modifiers == mods {
+                run(action)
+                return true
+            }
         }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    private func run(_ action: AppShortcut) {
+        switch action {
+        case .configure: showMetadata(focus: .title)
+        case .search: toggleSearch()
+        case .newNote: onNewNote?()
+        case .closeNote: onClose?()
+        case .actionMenu: handleCommandK()
+        }
+    }
+
+    private func hint(_ action: AppShortcut) -> String {
+        guard let combo = shortcuts[action] else { return "" }
+        return ShortcutRecorderView.display(combo)
     }
 
     private func handleCommandK() {
@@ -153,11 +170,12 @@ final class StickyPanel: NSPanel {
 
     private func buildActions() -> [MenuAction] {
         [
-            MenuAction(title: "Configure note", hint: "⌘E") { [weak self] in self?.showMetadata(focus: .title) },
-            MenuAction(title: "Search notes", hint: "⌘O") { [weak self] in self?.showSearch() },
-            MenuAction(title: "New note", hint: "⌘N") { [weak self] in self?.onNewNote?() },
-            MenuAction(title: "Close note", hint: "⌘W") { [weak self] in self?.onClose?() },
+            MenuAction(title: "Configure note", hint: hint(.configure)) { [weak self] in self?.showMetadata(focus: .title) },
+            MenuAction(title: "Search notes", hint: hint(.search)) { [weak self] in self?.showSearch() },
+            MenuAction(title: "New note", hint: hint(.newNote)) { [weak self] in self?.onNewNote?() },
+            MenuAction(title: "Close note", hint: hint(.closeNote)) { [weak self] in self?.onClose?() },
             MenuAction(title: "Delete note", hint: "⌘⌫") { [weak self] in self?.onDelete?() },
+            MenuAction(title: "Settings", hint: "") { [weak self] in self?.onSettings?() },
         ]
     }
 
@@ -248,16 +266,6 @@ final class StickyPanel: NSPanel {
 
     func rebind(noteId: UUID) {
         self.noteId = noteId
-    }
-
-    func placeTopRight(offsetIndex: Int) {
-        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
-        let visible = screen.visibleFrame
-        let margin: CGFloat = 20
-        let stagger = CGFloat(offsetIndex) * 28
-        let x = visible.maxX - frame.width - margin - stagger
-        let y = visible.maxY - frame.height - margin - stagger
-        setFrameOrigin(NSPoint(x: x, y: y))
     }
 }
 

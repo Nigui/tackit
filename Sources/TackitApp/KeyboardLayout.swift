@@ -19,6 +19,18 @@ enum KeyboardLayout {
         }
     }
 
+    static func character(for keyCode: UInt16) -> String? {
+        guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
+              let pointer = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else {
+            return nil
+        }
+        let layoutData = Unmanaged<CFData>.fromOpaque(pointer).takeUnretainedValue() as Data
+        return layoutData.withUnsafeBytes { buffer -> String? in
+            guard let layout = buffer.bindMemory(to: UCKeyboardLayout.self).baseAddress else { return nil }
+            return output(layout, keyCode: keyCode, shift: false)
+        }
+    }
+
     private static func output(_ layout: UnsafePointer<UCKeyboardLayout>, keyCode: UInt16, shift: Bool) -> String? {
         var deadKeyState: UInt32 = 0
         var length = 0
