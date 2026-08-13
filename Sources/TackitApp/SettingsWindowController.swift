@@ -114,9 +114,7 @@ final class SettingsWindowController: NSWindowController {
         let scrollView = NSScrollView()
         scrollView.drawsBackground = false
         scrollView.borderType = .noBorder
-        scrollView.hasVerticalScroller = true
-        scrollView.autohidesScrollers = true
-        scrollView.scrollerStyle = .overlay
+        scrollView.hasVerticalScroller = false
         scrollView.documentView = document
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         card.addSubview(scrollView)
