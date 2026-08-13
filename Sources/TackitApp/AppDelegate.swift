@@ -52,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotkey = newHotkey
         if newHotkey.isRegistered {
             registeredCombo = combo
-            statusItem?.button?.title = "📌"
+            setStatusIcon(warning: false)
         } else {
             reportHotkeyFailure()
         }
@@ -114,7 +114,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.title = "📌"
+        statusItem = item
+        setStatusIcon(warning: false)
         let menu = NSMenu()
         menu.addItem(withTitle: "New Sticky", action: #selector(menuNewSticky), keyEquivalent: "")
         menu.addItem(withTitle: "Show / Hide All", action: #selector(menuToggle), keyEquivalent: "")
@@ -123,8 +124,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Quit Tackit", action: #selector(menuQuit), keyEquivalent: "q")
         for menuItem in menu.items { menuItem.target = self }
         item.menu = menu
-        statusItem = item
-        Diag.log("status item installed (look for 📌 in the menu bar)")
+        Diag.log("status item installed")
+    }
+
+    private func setStatusIcon(warning: Bool) {
+        guard let button = statusItem?.button else { return }
+        if let url = Bundle.module.url(forResource: "StatusIcon", withExtension: "png"),
+           let icon = NSImage(contentsOf: url) {
+            icon.size = NSSize(width: 18, height: 18)
+            icon.isTemplate = true
+            button.image = icon
+            button.imagePosition = warning ? .imageLeading : .imageOnly
+            button.title = warning ? "⚠️" : ""
+        } else {
+            button.image = nil
+            button.title = warning ? "📌⚠️" : "📌"
+        }
     }
 
     @objc private func menuNewSticky() { openNewSticky() }
@@ -134,12 +149,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func reportHotkeyFailure() {
         Diag.log("ERROR: global hotkey NOT registered — surfacing to user")
-        statusItem?.button?.title = "📌⚠️"
+        setStatusIcon(warning: true)
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "Tackit couldn’t register its global shortcut"
-        alert.informativeText = "The shortcut may be in use by another app. Open notes from the 📌 menu, and set a different shortcut in Settings (⌘,)."
+        alert.informativeText = "The shortcut may be in use by another app. Open notes from the menu bar icon, and set a different shortcut in Settings (⌘,)."
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }

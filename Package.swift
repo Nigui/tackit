@@ -16,7 +16,7 @@ let package = Package(
         .executableTarget(
             name: "TackitApp",
             dependencies: ["TackitCore"],
-            resources: [.copy("Resources/editor")]
+            resources: [.copy("Resources/editor"), .copy("Resources/StatusIcon.png")]
         ),
         .testTarget(name: "TackitCoreTests", dependencies: ["TackitCore"]),
     ],
