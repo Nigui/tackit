@@ -80,10 +80,11 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" dist/Tackit.dmg --title "${GITHUB_REF_NAME}" "${flags[@]}"
 
       - name: Update Homebrew tap (stable tags only)
-        if: ${{ secrets.TAP_TOKEN != '' && !contains(github.ref_name, '-') }}
+        if: ${{ !contains(github.ref_name, '-') }}
         env:
           TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
         run: |
+          if [ -z "${TAP_TOKEN}" ]; then echo "TAP_TOKEN not set — skipping tap update"; exit 0; fi
           VERSION="${GITHUB_REF_NAME#v}"
           SHA="$(shasum -a 256 dist/Tackit.dmg | awk '{print $1}')"
           git clone --depth 1 "https://x-access-token:${TAP_TOKEN}@github.com/Nigui/homebrew-tap.git" tap
