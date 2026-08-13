@@ -3,6 +3,7 @@ import Foundation
 public final class NoteStore {
     public let rootURL: URL
     private let fileManager = FileManager.default
+    public private(set) var lastLoadFailures: [URL] = []
 
     public init(rootURL: URL) throws {
         self.rootURL = rootURL
@@ -54,13 +55,17 @@ public final class NoteStore {
             at: rootURL,
             includingPropertiesForKeys: nil
         )
-        return contents.filter { $0.pathExtension == "md" }.compactMap { url in
+        var failures: [URL] = []
+        let notes: [Note] = contents.filter { $0.pathExtension == "md" }.compactMap { url in
             guard let data = try? Data(contentsOf: url),
                   let parsed = try? NoteDocument.parse(String(decoding: data, as: UTF8.self)) else {
+                failures.append(url)
                 return nil
             }
             let id = UUID(uuidString: url.deletingPathExtension().lastPathComponent) ?? parsed.id
             return Note(id: id, metadata: parsed.metadata, body: parsed.body)
         }
+        lastLoadFailures = failures
+        return notes
     }
 }

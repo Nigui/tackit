@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Diag.log("launch: applicationDidFinishLaunching")
         setupStatusItem()
         setupStore()
+        rebuildSearchIndex()
         applyAppearance()
 
         installHotkey()
@@ -112,6 +113,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func rebuildSearchIndex() {
+        guard let store else { return }
+        let notes = (try? store.loadAll()) ?? []
+        searchIndex.rebuild(from: notes)
+        for url in store.lastLoadFailures {
+            Diag.log("WARNING: skipped unreadable or malformed note file: \(url.lastPathComponent)")
+        }
+    }
+
     private func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem = item
@@ -192,6 +202,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let note = existing ?? Note()
         if existing == nil { try? store?.save(note) }
         openNotes[note.id] = note
+        searchIndex.upsert(note)
 
         let surface = pool.acquire()
         surface.onMetric = { [weak self] name, ms in
@@ -270,7 +281,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func searchNotes(_ query: String) -> [NoteSearchResult] {
-        let notes = (try? store?.loadAll()) ?? []
+        let notes = searchIndex.allNotes()
         func fold(_ s: String) -> String {
             s.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
         }
@@ -342,7 +353,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func allGroups() -> [String] {
-        let notes = (try? store?.loadAll()) ?? []
+        let notes = searchIndex.allNotes()
         let groups = Set(notes.compactMap { $0.metadata.group }.filter { !$0.isEmpty })
         return groups.sorted()
     }
@@ -364,6 +375,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         note.body = markdown
         note.metadata.updatedAt = Date()
         openNotes[id] = note
+        searchIndex.upsert(note)
         scheduleSave(id)
     }
 

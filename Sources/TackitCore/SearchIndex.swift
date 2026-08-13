@@ -19,6 +19,7 @@ public protocol SearchIndex {
     func upsert(_ note: Note)
     func remove(id: UUID)
     func search(_ query: String, limit: Int) -> [SearchResult]
+    func allNotes() -> [Note]
 }
 
 public final class InMemorySearchIndex: SearchIndex {
@@ -36,6 +37,10 @@ public final class InMemorySearchIndex: SearchIndex {
 
     public func remove(id: UUID) {
         notes[id] = nil
+    }
+
+    public func allNotes() -> [Note] {
+        Array(notes.values)
     }
 
     public func search(_ query: String, limit: Int) -> [SearchResult] {
