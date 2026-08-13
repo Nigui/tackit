@@ -39,7 +39,7 @@ public final class InMemorySearchIndex: SearchIndex {
     }
 
     public func search(_ query: String, limit: Int) -> [SearchResult] {
-        let terms = query.lowercased().split { $0.isWhitespace }.map(String.init).filter { !$0.isEmpty }
+        let terms = fold(query).split { $0.isWhitespace }.map(String.init).filter { !$0.isEmpty }
 
         if terms.isEmpty {
             let recent = notes.values.sorted { $0.metadata.updatedAt > $1.metadata.updatedAt }
@@ -51,9 +51,9 @@ public final class InMemorySearchIndex: SearchIndex {
         var results: [SearchResult] = []
         for note in notes.values {
             let title = displayTitle(note)
-            let titleLower = title.lowercased()
-            let bodyLower = note.body.lowercased()
-            let tagsLower = note.metadata.tags.map { $0.lowercased() }
+            let titleLower = fold(title)
+            let bodyLower = fold(note.body)
+            let tagsLower = note.metadata.tags.map { fold($0) }
 
             var score = 0.0
             for term in terms {
@@ -71,16 +71,15 @@ public final class InMemorySearchIndex: SearchIndex {
     }
 
     private func displayTitle(_ note: Note) -> String {
-        if !note.metadata.title.isEmpty { return note.metadata.title }
-        let firstLine = note.body.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? ""
-        var trimmed = firstLine.trimmingCharacters(in: .whitespaces)
-        while trimmed.hasPrefix("#") { trimmed.removeFirst() }
-        trimmed = trimmed.trimmingCharacters(in: .whitespaces)
-        return trimmed.isEmpty ? "Untitled" : String(trimmed.prefix(80))
+        NoteDisplay.title(for: note)
     }
 
     private func snippet(_ note: Note) -> String {
         let flattened = note.body.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
         return String(flattened.prefix(100))
+    }
+
+    private func fold(_ string: String) -> String {
+        string.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
     }
 }

@@ -46,11 +46,19 @@ final class SearchIndexTests: XCTestCase {
         XCTAssertEqual(index.search("alpha", limit: 10).count, 0)
     }
 
-    func testDisplayTitleFallsBackToBodyFirstLine() {
+    func testDisplayTitleUsesSharedFallbackForTitlelessNote() {
         let index = InMemorySearchIndex()
         let n = note("", "# My heading\n\nrest of body")
         index.rebuild(from: [n])
         let result = index.search("heading", limit: 10).first
-        XCTAssertEqual(result?.title, "My heading")
+        XCTAssertEqual(result?.title, NoteDisplay.title(for: n))
+    }
+
+    func testSearchIgnoresDiacritics() {
+        let index = InMemorySearchIndex()
+        let n = note("Réunion", "à la café")
+        index.rebuild(from: [n])
+        XCTAssertEqual(index.search("reunion", limit: 10).first?.noteId, n.id)
+        XCTAssertEqual(index.search("cafe", limit: 10).first?.noteId, n.id)
     }
 }

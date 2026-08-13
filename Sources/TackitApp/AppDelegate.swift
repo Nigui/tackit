@@ -271,16 +271,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func searchNotes(_ query: String) -> [NoteSearchResult] {
         let notes = (try? store?.loadAll()) ?? []
-        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        func fold(_ s: String) -> String {
+            s.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+        }
+        let q = fold(query.trimmingCharacters(in: .whitespaces))
         let matched: [Note]
         if q.isEmpty {
             matched = notes
         } else {
             matched = notes.filter { note in
-                NoteDisplay.title(for: note).lowercased().contains(q)
-                    || note.metadata.description.lowercased().contains(q)
-                    || note.body.lowercased().contains(q)
-                    || note.metadata.tags.contains { $0.lowercased().contains(q) }
+                fold(NoteDisplay.title(for: note)).contains(q)
+                    || fold(note.metadata.description).contains(q)
+                    || fold(note.body).contains(q)
+                    || note.metadata.tags.contains { fold($0).contains(q) }
             }
         }
         return matched
