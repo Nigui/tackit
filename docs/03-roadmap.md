@@ -1,6 +1,6 @@
 # Roadmap: blazing-fast-memo (POC → Production MVP → Beyond)
 
-**Owner**: Alex (PM)  **Last Updated**: 2026-08-10
+**Owner**: Alex (PM)  **Last Updated**: 2026-08-13
 **Companion doc**: `02-prd.md` (features referenced by their §6 theme names)
 
 > This roadmap is a **prioritized bet**, not a contract. Effort is relative (S/M/L) for a solo Swift dev, not a date commitment. Each milestone has an explicit exit gate; **do not start the next milestone until the current gate is met.** The two architecture decisions this roadmap was sequenced to defer are now **resolved** — see **Decisions Locked (2026-08-10)** below, which supersedes any conflicting milestone text.
@@ -113,6 +113,12 @@ Founder review of the first wireframes pivots the model from a Raycast command-p
 - Unlimited notes + full-text search + keyboard switcher all functional, no mouse required for the core loop.
 - Notes are real files, readable/editable outside the app.
 - Public repo live with a license and a README.
+
+**Status / carryover (2026-08-13):** M1 is daily-usable and open-source, distributed as an **unsigned pre-release** DMG + a Homebrew tap (`brew install --cask nigui/tap/tackit`). Outstanding before the M1 distribution gate is fully met:
+
+- **Signed + notarized release** (M1-Must) — **blocked on Apple Developer Program enrollment.** Once enrolled: add the signing + notarization secrets (and `TAP_TOKEN`), tag a stable release; CI then notarizes the DMG and auto-bumps the cask. Until then the tap serves the unsigned build and users hit Gatekeeper friction.
+- **Auto-update (Sparkle)** (M1-Should) — deferred.
+- **CI time-to-first-keystroke gate (< 300 ms)** — deferred.
 
 ---
 
