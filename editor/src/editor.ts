@@ -2,6 +2,8 @@ import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from 'tiptap-markdown'
 import { EditorState } from '@tiptap/pm/state'
+import Link from '@tiptap/extension-link'
+import Image from '@tiptap/extension-image'
 
 interface Envelope {
   v: number
@@ -40,7 +42,12 @@ let applyingRemote = false
 
 const editor = new Editor({
   element,
-  extensions: [StarterKit, Markdown.configure({ html: false, linkify: false, breaks: false })],
+  extensions: [
+    StarterKit,
+    Link.configure({ openOnClick: false, autolink: false, linkOnPaste: false }),
+    Image.configure({ inline: true }),
+    Markdown.configure({ html: false, linkify: false, breaks: false }),
+  ],
   content: '',
   autofocus: false,
   onCreate() {

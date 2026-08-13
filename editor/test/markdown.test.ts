@@ -2,12 +2,19 @@ import { describe, it, expect } from 'vitest'
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from 'tiptap-markdown'
+import Link from '@tiptap/extension-link'
+import Image from '@tiptap/extension-image'
 
 function makeEditor(markdown: string): Editor {
   const element = document.createElement('div')
   return new Editor({
     element,
-    extensions: [StarterKit, Markdown.configure({ html: false, linkify: false, breaks: false })],
+    extensions: [
+      StarterKit,
+      Link.configure({ openOnClick: false, autolink: false, linkOnPaste: false }),
+      Image.configure({ inline: true }),
+      Markdown.configure({ html: false, linkify: false, breaks: false }),
+    ],
     content: markdown,
   })
 }
@@ -40,6 +47,8 @@ const cases = [
   'A paragraph.\n\nAnother paragraph.',
   '- outer\n  - nested\n  - nested two',
   '### h3\n\ntext\n\n- l1\n- l2\n\n> quote',
+  'See [docs](https://example.com) for details.',
+  '![alt text](https://example.com/x.png)',
 ]
 
 describe('markdown round-trip is stable (no drift on re-save)', () => {
@@ -72,6 +81,16 @@ describe('golden md↔PM fuzz (deterministic)', () => {
       const twice = roundTrip(once)
       expect(twice, `unstable round-trip for:\n${doc}\n--- once ---\n${once}`).toBe(once)
     }
+  })
+})
+
+describe('links and images are preserved on load→save', () => {
+  it('keeps a link target', () => {
+    expect(roundTrip('See [docs](https://example.com) here.')).toContain('](https://example.com)')
+  })
+
+  it('keeps an image with its source', () => {
+    expect(roundTrip('![alt text](https://example.com/x.png)')).toContain('![alt text](https://example.com/x.png)')
   })
 })
 
