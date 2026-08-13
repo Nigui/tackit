@@ -36,6 +36,7 @@ final class StickyPanel: NSPanel {
             defer: false
         )
 
+        isReleasedWhenClosed = false
         isFloatingPanel = true
         level = .floating
         isMovableByWindowBackground = true
@@ -116,13 +117,16 @@ final class StickyPanel: NSPanel {
         guard event.modifierFlags.contains(.command) else {
             return super.performKeyEquivalent(with: event)
         }
-        if !event.modifierFlags.contains(.shift), let number = StickyPanel.numberKeyCodes[event.keyCode] {
-            onSwitchTo?(number)
-            return true
-        }
-        if event.keyCode == 51 {
-            onDelete?()
-            return true
+        let editingText = firstResponder is NSText
+        if !editingText {
+            if !event.modifierFlags.contains(.shift), let number = StickyPanel.numberKeyCodes[event.keyCode] {
+                onSwitchTo?(number)
+                return true
+            }
+            if event.keyCode == 51 {
+                onDelete?()
+                return true
+            }
         }
         let mods = ShortcutRecorderView.carbonModifiers(from: event.modifierFlags)
         for action in AppShortcut.allCases {
