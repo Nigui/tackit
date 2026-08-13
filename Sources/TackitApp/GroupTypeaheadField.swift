@@ -140,10 +140,12 @@ final class GroupTypeaheadField: NSView {
         let container = NSView(frame: NSRect(x: rect.minX, y: rect.minY - visibleHeight - 4, width: width, height: visibleHeight))
         container.wantsLayer = true
         container.layer?.cornerRadius = 8
-        container.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
         container.layer?.borderWidth = 1
-        container.layer?.borderColor = NSColor.separatorColor.cgColor
         container.layer?.masksToBounds = true
+        host.effectiveAppearance.performAsCurrentDrawingAppearance {
+            container.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+            container.layer?.borderColor = NSColor.separatorColor.cgColor
+        }
 
         let scroll = NSScrollView(frame: container.bounds)
         scroll.autoresizingMask = [.width, .height]

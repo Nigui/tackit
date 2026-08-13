@@ -32,9 +32,7 @@ final class MetadataOverlay: NSVisualEffectView {
     required init?(coder: NSCoder) { fatalError("not implemented") }
 
     private func buildUI() {
-        let scrim = NSView()
-        scrim.wantsLayer = true
-        scrim.layer?.backgroundColor = Theme.overlayBackground.cgColor
+        let scrim = ThemedView(fill: { Theme.overlayBackground })
         scrim.translatesAutoresizingMaskIntoConstraints = false
         addSubview(scrim)
         NSLayoutConstraint.activate([
@@ -128,9 +126,7 @@ final class MetadataOverlay: NSVisualEffectView {
     }
 
     private func makeFooter() -> NSView {
-        let footer = NSView()
-        footer.wantsLayer = true
-        footer.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.10).cgColor
+        let footer = ThemedView(fill: { Theme.overlayFooter })
         footer.translatesAutoresizingMaskIntoConstraints = false
 
         let separator = NSBox()

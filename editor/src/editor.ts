@@ -104,6 +104,9 @@ window.__tackitReceive = (envelope: Envelope) => {
       applyingRemote = false
       editor.commands.blur()
       break
+    case 'theme':
+      document.documentElement.classList.toggle('dark', Boolean(envelope.payload?.dark))
+      break
     default:
       break
   }

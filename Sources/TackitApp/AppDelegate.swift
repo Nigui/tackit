@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Diag.log("launch: applicationDidFinishLaunching")
         setupStatusItem()
         setupStore()
+        applyAppearance()
 
         installHotkey()
         NotificationCenter.default.addObserver(
@@ -60,15 +61,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func suspendHotkey() { hotkey = nil }
     private func resumeHotkey() { installHotkey() }
 
+    private func applyAppearance() {
+        NSApp.appearance = settings.nsAppearance()
+    }
+
+    private var isDark: Bool {
+        NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+    }
+
     @objc private func settingsChanged() {
+        applyAppearance()
         if settings.globalHotkey != registeredCombo {
             installHotkey()
         }
         let level: NSWindow.Level = settings.alwaysOnTop ? .floating : .normal
         let bindings = settings.allBindings()
+        let dark = isDark
         for panel in panels {
             panel.level = level
             panel.shortcuts = bindings
+            panel.editorSurface.setTheme(dark: dark)
         }
     }
 
@@ -201,6 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
         surface.load(markdown: note.body)
+        surface.setTheme(dark: isDark)
         panel.update(note: note)
         surface.focus()
 
@@ -298,6 +311,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         windowState.save(panel.frame, for: note.id)
         surface.load(markdown: note.body)
+        surface.setTheme(dark: isDark)
         panel.update(note: note)
         surface.focus()
     }

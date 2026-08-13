@@ -44,11 +44,21 @@ final class MenuRow: NSView {
 
     required init?(coder: NSCoder) { fatalError("not implemented") }
 
+    private var isHighlighted = false
+
     func setHighlighted(_ highlighted: Bool) {
-        layer?.backgroundColor = highlighted ? Theme.overlayFocus.cgColor : nil
+        isHighlighted = highlighted
         titleLabel.textColor = highlighted ? Theme.overlaySelectionText : Theme.onOverlay
-        hintLabel.textColor = highlighted ? NSColor.white.withAlphaComponent(0.7) : Theme.onOverlaySecondary
+        hintLabel.textColor = highlighted ? Theme.overlaySelectionText.withAlphaComponent(0.7) : Theme.onOverlaySecondary
+        needsDisplay = true
     }
+
+    override var wantsUpdateLayer: Bool { true }
+    override func updateLayer() {
+        layer?.cornerRadius = 6
+        layer?.backgroundColor = isHighlighted ? Theme.overlayFocus.cgColor : nil
+    }
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         bounds.contains(convert(point, from: superview)) ? self : nil
@@ -88,9 +98,7 @@ final class ActionMenuOverlay: NSVisualEffectView {
     required init?(coder: NSCoder) { fatalError("not implemented") }
 
     private func buildUI() {
-        let scrim = NSView()
-        scrim.wantsLayer = true
-        scrim.layer?.backgroundColor = Theme.overlayBackground.cgColor
+        let scrim = ThemedView(fill: { Theme.overlayBackground })
         scrim.translatesAutoresizingMaskIntoConstraints = false
         addSubview(scrim)
         NSLayoutConstraint.activate([
@@ -116,9 +124,7 @@ final class ActionMenuOverlay: NSVisualEffectView {
         listStack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(listStack)
 
-        let footer = NSView()
-        footer.wantsLayer = true
-        footer.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.10).cgColor
+        let footer = ThemedView(fill: { Theme.overlayFooter })
         footer.translatesAutoresizingMaskIntoConstraints = false
         addSubview(footer)
 

@@ -23,7 +23,7 @@ final class ToggleSwitch: NSControl {
     override func draw(_ dirtyRect: NSRect) {
         let track = trackRect
         let radius = track.height / 2
-        (isOn ? Theme.overlayFocus : NSColor.black.withAlphaComponent(0.18)).setFill()
+        (isOn ? Theme.overlayFocus : NSColor(calibratedWhite: 0.5, alpha: 0.30)).setFill()
         NSBezierPath(roundedRect: track, xRadius: radius, yRadius: radius).fill()
 
         let diameter = track.height - 4
@@ -56,6 +56,7 @@ final class ToggleSwitch: NSControl {
 
     override func becomeFirstResponder() -> Bool { needsDisplay = true; return super.becomeFirstResponder() }
     override func resignFirstResponder() -> Bool { needsDisplay = true; return super.resignFirstResponder() }
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
 
     func setOn(_ on: Bool) { isOn = on; needsDisplay = true }
 

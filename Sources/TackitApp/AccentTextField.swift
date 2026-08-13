@@ -24,8 +24,11 @@ final class PaddingTextFieldCell: NSTextFieldCell {
 
 final class AccentTextField: NSTextField {
     private let height: CGFloat = 30
+    private let placeholderText: String
+    private var focused = false
 
     init(placeholder: String) {
+        placeholderText = placeholder
         super.init(frame: .zero)
         let paddedCell = PaddingTextFieldCell(textCell: "")
         paddedCell.isEditable = true
@@ -33,26 +36,16 @@ final class AccentTextField: NSTextField {
         paddedCell.isScrollable = true
         paddedCell.wraps = false
         paddedCell.usesSingleLineMode = true
-        paddedCell.placeholderAttributedString = NSAttributedString(
-            string: placeholder,
-            attributes: [
-                .foregroundColor: Theme.overlayPlaceholder,
-                .font: NSFont.systemFont(ofSize: 13),
-            ]
-        )
         cell = paddedCell
 
         font = .systemFont(ofSize: 13)
-        textColor = Theme.onOverlay
         focusRingType = .none
         drawsBackground = false
         wantsLayer = true
         layer?.cornerRadius = 6
-        layer?.borderWidth = 1
-        layer?.borderColor = Theme.overlayFieldBorder.cgColor
-        layer?.backgroundColor = Theme.overlayField.cgColor
         setContentHuggingPriority(.defaultLow, for: .horizontal)
         setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        restyle()
     }
 
     required init?(coder: NSCoder) { fatalError("not implemented") }
@@ -63,17 +56,34 @@ final class AccentTextField: NSTextField {
 
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()
-        if accepted { setFocused(true) }
+        if accepted { focused = true; restyle() }
         return accepted
     }
 
     override func textDidEndEditing(_ notification: Notification) {
         super.textDidEndEditing(notification)
-        setFocused(false)
+        focused = false
+        restyle()
     }
 
-    private func setFocused(_ focused: Bool) {
-        layer?.borderColor = focused ? Theme.overlayFocus.cgColor : Theme.overlayFieldBorder.cgColor
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        restyle()
+    }
+
+    private func restyle() {
+        textColor = Theme.onOverlay
+        placeholderAttributedString = NSAttributedString(
+            string: placeholderText,
+            attributes: [
+                .foregroundColor: Theme.overlayPlaceholder,
+                .font: NSFont.systemFont(ofSize: 13),
+            ]
+        )
         layer?.borderWidth = focused ? 2 : 1
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = Theme.overlayField.cgColor
+            layer?.borderColor = (focused ? Theme.overlayFocus : Theme.overlayFieldBorder).cgColor
+        }
     }
 }

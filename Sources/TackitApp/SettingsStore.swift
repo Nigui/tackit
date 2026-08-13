@@ -8,6 +8,10 @@ enum StickyPlacement: Int, CaseIterable {
     case bottomLeft, bottom, bottomRight
 }
 
+enum AppearanceMode: Int, CaseIterable {
+    case light, system, dark
+}
+
 struct KeyCombo: Equatable {
     let keyCode: UInt32
     let modifiers: UInt32 // Carbon modifier mask
@@ -47,6 +51,7 @@ final class SettingsStore {
         static let height = "defaultHeight"
         static let placement = "placement"
         static let alwaysOnTop = "alwaysOnTop"
+        static let appearance = "appearance"
         static let hotkeyKeyCode = "hotkeyKeyCode"
         static let hotkeyModifiers = "hotkeyModifiers"
     }
@@ -62,6 +67,7 @@ final class SettingsStore {
             Key.height: 460.0,
             Key.placement: StickyPlacement.topRight.rawValue,
             Key.alwaysOnTop: true,
+            Key.appearance: AppearanceMode.system.rawValue,
             Key.hotkeyKeyCode: Int(KeyboardLayout.keyCode(for: ".") ?? UInt32(kVK_ANSI_Period)),
             Key.hotkeyModifiers: Int(cmdKey | shiftKey),
         ]
@@ -103,6 +109,19 @@ final class SettingsStore {
     var alwaysOnTop: Bool {
         get { defaults.bool(forKey: Key.alwaysOnTop) }
         set { defaults.set(newValue, forKey: Key.alwaysOnTop); notify() }
+    }
+
+    var appearance: AppearanceMode {
+        get { AppearanceMode(rawValue: defaults.integer(forKey: Key.appearance)) ?? .system }
+        set { defaults.set(newValue.rawValue, forKey: Key.appearance); notify() }
+    }
+
+    func nsAppearance() -> NSAppearance? {
+        switch appearance {
+        case .light: return NSAppearance(named: .aqua)
+        case .dark: return NSAppearance(named: .darkAqua)
+        case .system: return nil
+        }
     }
 
     // MARK: - Launch at login

@@ -43,8 +43,10 @@ final class SegmentedBar: NSControl {
         }
     }
 
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
+
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.black.withAlphaComponent(0.10).setFill()
+        Theme.overlayField.setFill()
         NSBezierPath(roundedRect: bounds, xRadius: 7, yRadius: 7).fill()
 
         for (index, rect) in cellRects.enumerated() {
@@ -55,7 +57,7 @@ final class SegmentedBar: NSControl {
             }
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: Self.font,
-                .foregroundColor: selected ? NSColor.white : Theme.onOverlay,
+                .foregroundColor: selected ? Theme.overlaySelectionText : Theme.onOverlay,
             ]
             let text = segments[index] as NSString
             let size = text.size(withAttributes: attributes)

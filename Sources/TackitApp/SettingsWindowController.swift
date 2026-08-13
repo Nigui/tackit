@@ -40,13 +40,7 @@ final class SettingsWindowController: NSWindowController {
     required init?(coder: NSCoder) { fatalError("not implemented") }
 
     private func buildContent() {
-        let card = NSView()
-        card.wantsLayer = true
-        card.layer?.cornerRadius = 12
-        card.layer?.masksToBounds = true
-        card.layer?.backgroundColor = Theme.overlayBackground.cgColor
-        card.layer?.borderWidth = 1
-        card.layer?.borderColor = NSColor.black.withAlphaComponent(0.12).cgColor
+        let card = ThemedView(fill: { Theme.overlayBackground }, cornerRadius: 12, border: { NSColor.separatorColor }, borderWidth: 1)
 
         let title = titleLabel("Settings", size: 18, weight: .bold)
         card.addSubview(title)
@@ -68,7 +62,15 @@ final class SettingsWindowController: NSWindowController {
         let loginSwitch = ToggleSwitch(isOn: settings.openAtLogin)
         loginSwitch.onToggle = { [weak self] in self?.settings.openAtLogin = $0 }
 
+        let themeControl = SegmentedBar(segments: ["Light", "System", "Dark"], selectedIndex: settings.appearance.rawValue)
+        themeControl.onChange = { [weak self] index in
+            if let mode = AppearanceMode(rawValue: index) { self?.settings.appearance = mode }
+        }
+
         var elements: [NSView] = [
+            heading("Appearance"),
+            row("Theme", "Light, follow macOS, or dark", control: themeControl, focusable: themeControl),
+            spacer(),
             heading("Window"),
             row("Default size", nil, control: sizeControl, focusable: sizeControl),
             row("Default placement", "Where a note floats in", control: placement, focusable: placement),
@@ -116,9 +118,7 @@ final class SettingsWindowController: NSWindowController {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         card.addSubview(scrollView)
 
-        let footerBar = NSView()
-        footerBar.wantsLayer = true
-        footerBar.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.10).cgColor
+        let footerBar = ThemedView(fill: { Theme.overlayFooter })
         footerBar.translatesAutoresizingMaskIntoConstraints = false
         card.addSubview(footerBar)
 

@@ -1,19 +1,15 @@
 import AppKit
 
 final class TagPill: NSButton {
+    private let tagText: String
+
     init(tag: String) {
+        self.tagText = tag
         super.init(frame: .zero)
         isBordered = false
         wantsLayer = true
         layer?.cornerRadius = 9
-        layer?.backgroundColor = Theme.overlayFocus.cgColor
-        attributedTitle = NSAttributedString(
-            string: "#\(tag)  ✕",
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 11, weight: .medium),
-                .foregroundColor: NSColor.white.withAlphaComponent(0.92),
-            ]
-        )
+        restyle()
     }
 
     required init?(coder: NSCoder) { fatalError("not implemented") }
@@ -21,6 +17,24 @@ final class TagPill: NSButton {
     override var intrinsicContentSize: NSSize {
         let base = attributedTitle.size()
         return NSSize(width: ceil(base.width) + 18, height: 20)
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        restyle()
+    }
+
+    private func restyle() {
+        attributedTitle = NSAttributedString(
+            string: "#\(tagText)  ✕",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+                .foregroundColor: Theme.overlaySelectionText.withAlphaComponent(0.92),
+            ]
+        )
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = Theme.overlayFocus.cgColor
+        }
     }
 }
 

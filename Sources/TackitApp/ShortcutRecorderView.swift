@@ -5,8 +5,6 @@ private final class KeyCap: NSView {
     init(_ text: String) {
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.cornerRadius = 4
-        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.55).cgColor
         let label = NSTextField(labelWithString: text)
         label.font = .systemFont(ofSize: 12, weight: .medium)
         label.textColor = Theme.onOverlay
@@ -21,6 +19,13 @@ private final class KeyCap: NSView {
         ])
     }
     required init?(coder: NSCoder) { fatalError("not implemented") }
+
+    override var wantsUpdateLayer: Bool { true }
+    override func updateLayer() {
+        layer?.cornerRadius = 4
+        layer?.backgroundColor = Theme.keyCapBackground.cgColor
+    }
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
 }
 
 final class ShortcutRecorderView: NSView {
@@ -137,19 +142,16 @@ final class ShortcutRecorderView: NSView {
         content.addArrangedSubview(hint)
         hint.isHidden = !recording
 
-        let focused = isFocused
-        if recording {
-            layer?.borderWidth = 1.5
+        layer?.borderWidth = (recording || isFocused) ? 1.5 : 0
+        effectiveAppearance.performAsCurrentDrawingAppearance {
             layer?.borderColor = Theme.overlayFocus.cgColor
-            layer?.backgroundColor = NSColor.black.withAlphaComponent(0.06).cgColor
-        } else if focused {
-            layer?.borderWidth = 1.5
-            layer?.borderColor = Theme.overlayFocus.cgColor
-            layer?.backgroundColor = NSColor.clear.cgColor
-        } else {
-            layer?.borderWidth = 0
-            layer?.backgroundColor = NSColor.clear.cgColor
+            layer?.backgroundColor = (recording ? Theme.overlayField : NSColor.clear).cgColor
         }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        refresh()
     }
 
     // MARK: - Formatting

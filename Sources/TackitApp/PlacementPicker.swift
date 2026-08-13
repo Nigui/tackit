@@ -21,9 +21,17 @@ final class PlacementCell: NSView {
 
     override func mouseDown(with event: NSEvent) { onClick?() }
 
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateAppearance()
+    }
+
     private func updateAppearance() {
-        layer?.backgroundColor = NSColor.black.withAlphaComponent(isSelected ? 0.24 : 0.12).cgColor
         layer?.borderWidth = isSelected ? 2 : 0
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = Theme.onOverlay.withAlphaComponent(isSelected ? 0.24 : 0.12).cgColor
+            layer?.borderColor = Theme.overlayFocus.cgColor
+        }
     }
 }
 
@@ -76,6 +84,7 @@ final class PlacementPicker: NSView {
     override var canBecomeKeyView: Bool { true }
     override func becomeFirstResponder() -> Bool { needsDisplay = true; return super.becomeFirstResponder() }
     override func resignFirstResponder() -> Bool { needsDisplay = true; return super.resignFirstResponder() }
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
 
     override func draw(_ dirtyRect: NSRect) {
         if window?.firstResponder === self {

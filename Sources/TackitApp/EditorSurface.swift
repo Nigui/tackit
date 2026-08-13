@@ -9,6 +9,7 @@ protocol EditorSurface: AnyObject {
     func load(markdown: String)
     func focus()
     func reset()
+    func setTheme(dark: Bool)
 }
 
 final class WebEditorSurface: EditorSurface {
@@ -73,5 +74,9 @@ final class WebEditorSurface: EditorSurface {
 
     func reset() {
         whenReady { [weak self] in self?.bridge.send("reset") }
+    }
+
+    func setTheme(dark: Bool) {
+        whenReady { [weak self] in self?.bridge.send("theme", payload: ["dark": dark]) }
     }
 }

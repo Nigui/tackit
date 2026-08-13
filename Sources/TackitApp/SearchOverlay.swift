@@ -94,13 +94,23 @@ final class SearchResultRow: NSView {
 
     required init?(coder: NSCoder) { fatalError("not implemented") }
 
+    private var isHighlighted = false
+
     func setHighlighted(_ highlighted: Bool) {
-        layer?.backgroundColor = highlighted ? Theme.overlayFocus.cgColor : nil
+        isHighlighted = highlighted
         titleLabel.textColor = highlighted ? Theme.overlaySelectionText : Theme.onOverlay
-        descLabel.textColor = highlighted ? NSColor.white.withAlphaComponent(0.8) : Theme.onOverlaySecondary
-        dateLine.textColor = highlighted ? NSColor.white.withAlphaComponent(0.8) : Theme.onOverlaySecondary
-        timeLine.textColor = highlighted ? NSColor.white.withAlphaComponent(0.6) : Theme.onOverlayTertiary
+        descLabel.textColor = highlighted ? Theme.overlaySelectionText.withAlphaComponent(0.8) : Theme.onOverlaySecondary
+        dateLine.textColor = highlighted ? Theme.overlaySelectionText.withAlphaComponent(0.8) : Theme.onOverlaySecondary
+        timeLine.textColor = highlighted ? Theme.overlaySelectionText.withAlphaComponent(0.6) : Theme.onOverlayTertiary
+        needsDisplay = true
     }
+
+    override var wantsUpdateLayer: Bool { true }
+    override func updateLayer() {
+        layer?.cornerRadius = 6
+        layer?.backgroundColor = isHighlighted ? Theme.overlayFocus.cgColor : nil
+    }
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         bounds.contains(convert(point, from: superview)) ? self : nil
@@ -144,9 +154,7 @@ final class SearchOverlay: NSVisualEffectView {
     required init?(coder: NSCoder) { fatalError("not implemented") }
 
     private func buildUI() {
-        let scrim = NSView()
-        scrim.wantsLayer = true
-        scrim.layer?.backgroundColor = Theme.overlayBackground.cgColor
+        let scrim = ThemedView(fill: { Theme.overlayBackground })
         scrim.translatesAutoresizingMaskIntoConstraints = false
         addSubview(scrim)
 
@@ -182,9 +190,7 @@ final class SearchOverlay: NSVisualEffectView {
         emptyLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(emptyLabel)
 
-        let footer = NSView()
-        footer.wantsLayer = true
-        footer.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.10).cgColor
+        let footer = ThemedView(fill: { Theme.overlayFooter })
         footer.translatesAutoresizingMaskIntoConstraints = false
         addSubview(footer)
 
