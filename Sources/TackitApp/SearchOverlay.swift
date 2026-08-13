@@ -141,6 +141,7 @@ final class SearchOverlay: NSVisualEffectView {
     private var rows: [SearchResultRow] = []
     private var results: [NoteSearchResult] = []
     private var highlighted = 0
+    private var lastMouseLocation: NSPoint?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -258,16 +259,25 @@ final class SearchOverlay: NSVisualEffectView {
                 timeText: Self.timeFormatter.string(from: result.updatedAt)
             )
             row.onClick = { [weak self] in self?.open(index, inNewPanel: false) }
-            row.onHover = { [weak self] in
-                self?.highlighted = index
-                self?.updateHighlight()
-            }
+            row.onHover = { [weak self] in self?.hoverHighlight(index) }
             rowsStack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: rowsStack.widthAnchor).isActive = true
             return row
         }
         emptyLabel.isHidden = !results.isEmpty
+        lastMouseLocation = NSEvent.mouseLocation
         highlighted = 0
+        updateHighlight()
+    }
+
+    // Honor hover only when the mouse actually moved. When keyboard navigation scrolls
+    // the list, rows slide under a stationary cursor and fire mouseEntered; ignoring
+    // those keeps the keyboard in control.
+    private func hoverHighlight(_ index: Int) {
+        let location = NSEvent.mouseLocation
+        if location == lastMouseLocation { return }
+        lastMouseLocation = location
+        highlighted = index
         updateHighlight()
     }
 
@@ -282,6 +292,7 @@ final class SearchOverlay: NSVisualEffectView {
 
     private func moveHighlight(_ delta: Int) {
         guard !rows.isEmpty else { return }
+        lastMouseLocation = NSEvent.mouseLocation
         highlighted = max(0, min(rows.count - 1, highlighted + delta))
         updateHighlight()
     }
