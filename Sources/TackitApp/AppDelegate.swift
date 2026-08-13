@@ -42,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func installHotkey() {
         hotkey = nil // release the previous registration before registering the new combo
         let combo = settings.globalHotkey
+        registeredCombo = combo // record the attempted combo so a later change (incl. reverting) always re-installs
         let newHotkey = GlobalHotkey(
             keyCode: combo.keyCode,
             modifiers: combo.modifiers
@@ -51,7 +52,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         hotkey = newHotkey
         if newHotkey.isRegistered {
-            registeredCombo = combo
             setStatusIcon(warning: false)
         } else {
             reportHotkeyFailure()
@@ -181,6 +181,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         (try? store?.loadAll())?.max(by: { $0.metadata.updatedAt < $1.metadata.updatedAt })
     }
 
+    private static func frameIsReachable(_ frame: NSRect) -> Bool {
+        NSScreen.screens.contains { screen in
+            let overlap = screen.visibleFrame.intersection(frame)
+            return overlap.width >= 40 && overlap.height >= 40
+        }
+    }
+
     func openNewSticky(existing: Note? = nil) {
         let note = existing ?? Note()
         if existing == nil { try? store?.save(note) }
@@ -215,7 +222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.onSettings = { [weak self] in self?.openSettings() }
         panel.shortcuts = settings.allBindings()
         panel.level = settings.alwaysOnTop ? .floating : .normal
-        if let saved = windowState.frame(for: note.id) {
+        if let saved = windowState.frame(for: note.id), Self.frameIsReachable(saved) {
             panel.setFrame(saved, display: false)
         } else {
             panel.setContentSize(settings.defaultSize)
@@ -380,7 +387,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func switchTo(_ number: Int) {
         let visible = panels.filter { $0.isVisible }
-        guard (1...visible.count).contains(number) else { return }
+        guard number >= 1, number <= visible.count else { return }
         let target = visible[number - 1]
         target.makeKeyAndOrderFront(nil)
         target.orderFrontRegardless()
