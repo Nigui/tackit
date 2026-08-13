@@ -61,11 +61,13 @@ final class MetadataOverlay: NSVisualEffectView {
             self?.meta.group = group
             self?.commit()
         }
+        groupField.onCancel = { [weak self] in self?.onClose?() }
 
         tagsView.onChange = { [weak self] tags in
             self?.meta.tags = tags
             self?.commit()
         }
+        tagsView.onCancel = { [weak self] in self?.onClose?() }
 
         let content = NSStackView()
         content.orientation = .vertical
@@ -119,10 +121,11 @@ final class MetadataOverlay: NSVisualEffectView {
             footer.heightAnchor.constraint(equalToConstant: 30),
         ])
 
+        iconButton.nextKeyView = titleField
         titleField.nextKeyView = descriptionField
         descriptionField.nextKeyView = groupField.textField
         groupField.textField.nextKeyView = tagsView.textField
-        tagsView.textField.nextKeyView = titleField
+        tagsView.textField.nextKeyView = iconButton
     }
 
     private func makeFooter() -> NSView {

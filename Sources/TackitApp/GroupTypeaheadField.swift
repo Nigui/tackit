@@ -55,6 +55,7 @@ final class DropdownRow: NSView {
 
 final class GroupTypeaheadField: NSView {
     var onChange: ((String?) -> Void)?
+    var onCancel: (() -> Void)?
     weak var host: NSView?
 
     let input = AccentTextField(placeholder: "uncategorized")
@@ -238,6 +239,8 @@ extension GroupTypeaheadField: NSTextFieldDelegate {
             return true
         case #selector(NSResponder.cancelOperation(_:)):
             if dropdown != nil { hideDropdown(); return true }
+            onCancel?()
+            return true
         default:
             break
         }

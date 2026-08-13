@@ -46,6 +46,7 @@ final class TagInputField: NSTextField {
 
 final class TagsInputView: NSView {
     var onChange: (([String]) -> Void)?
+    var onCancel: (() -> Void)?
     private(set) var tags: [String] = []
 
     private let input = TagInputField()
@@ -156,6 +157,10 @@ extension TagsInputView: NSTextFieldDelegate {
             tags.removeLast()
             rebuildPills()
             onChange?(tags)
+            return true
+        }
+        if selector == #selector(NSResponder.cancelOperation(_:)) {
+            onCancel?()
             return true
         }
         return false
