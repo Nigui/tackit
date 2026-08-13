@@ -1,4 +1,5 @@
 import AppKit
+import WebKit
 
 final class ClickView: NSView {
     var onClick: (() -> Void)?
@@ -60,7 +61,9 @@ final class UndoToast {
         self.panel = panel
 
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "z" {
+            if event.modifierFlags.contains(.command),
+               event.charactersIgnoringModifiers?.lowercased() == "z",
+               !UndoToast.isEditingText() {
                 self?.performUndo()
                 return nil
             }
@@ -70,6 +73,19 @@ final class UndoToast {
         timer = Timer.scheduledTimer(withTimeInterval: 6, repeats: false) { [weak self] _ in
             self?.dismiss()
         }
+    }
+
+    // ⌘Z belongs to the focused editor when the user is typing (a note's web editor
+    // or an overlay text field); only treat it as "undo delete" otherwise.
+    private static func isEditingText() -> Bool {
+        guard let responder = NSApp.keyWindow?.firstResponder else { return false }
+        if responder is NSText { return true }
+        var view = responder as? NSView
+        while let current = view {
+            if current is WKWebView { return true }
+            view = current.superview
+        }
+        return false
     }
 
     private func performUndo() {
