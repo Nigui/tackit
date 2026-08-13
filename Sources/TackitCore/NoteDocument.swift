@@ -23,6 +23,16 @@ public enum NoteDocument {
         return formatter
     }()
 
+    private static let isoFormatterNoFraction: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    private static func parseDate(_ string: String) -> Date? {
+        isoFormatter.date(from: string) ?? isoFormatterNoFraction.date(from: string)
+    }
+
     public static func serialize(_ note: Note) throws -> String {
         let frontmatter = Frontmatter(
             id: note.id.uuidString,
@@ -58,8 +68,8 @@ public enum NoteDocument {
             icon: frontmatter.icon,
             group: frontmatter.group,
             tags: frontmatter.tags,
-            createdAt: isoFormatter.date(from: frontmatter.created) ?? Date(),
-            updatedAt: isoFormatter.date(from: frontmatter.updated) ?? Date()
+            createdAt: parseDate(frontmatter.created) ?? Date(),
+            updatedAt: parseDate(frontmatter.updated) ?? Date()
         )
         return Note(id: UUID(uuidString: frontmatter.id) ?? UUID(), metadata: metadata, body: body)
     }

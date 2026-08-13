@@ -46,6 +46,24 @@ final class NoteDocumentGoldenTests: XCTestCase {
         XCTAssertNil(parsed.metadata.group)
     }
 
+    func testParsesTimestampsWithoutFractionalSeconds() throws {
+        let content = """
+        ---
+        id: 11111111-2222-4333-8444-555566667777
+        title: x
+        description: ""
+        icon: "📝"
+        tags: []
+        created: "2024-01-01T09:00:00Z"
+        updated: "2024-01-01T09:30:00Z"
+        ---
+        body
+        """
+        let note = try NoteDocument.parse(content)
+        let expected = ISO8601DateFormatter().date(from: "2024-01-01T09:00:00Z")!
+        XCTAssertEqual(note.metadata.createdAt.timeIntervalSince1970, expected.timeIntervalSince1970, accuracy: 0.001)
+    }
+
     func testBodyWithRulesAndDelimitersPreserved() throws {
         let body = "before\n\n---\n\nafter\n\ninline --- dashes and a final line"
         let note = Note(metadata: NoteMetadata(title: "x"), body: body)
