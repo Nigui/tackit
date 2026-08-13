@@ -86,8 +86,18 @@ git push origin v0.0.1
 ```
 
 The workflow builds, (signs + notarizes when secrets are set), and publishes the
-DMG to a GitHub release. Then update `packaging/tackit.rb` (`OWNER/REPO`, version,
-DMG `sha256`) in your Homebrew tap.
+DMG to a GitHub release.
+
+**Homebrew tap auto-update:** for **stable** tags (no `-`, e.g. `v0.0.1`) the
+workflow also rewrites `Casks/tackit.rb` in `Nigui/homebrew-tap` with the new
+version + DMG `sha256` and pushes it — so `brew install --cask nigui/tap/tackit`
+tracks the latest stable automatically. This needs one extra secret:
+
+- `TAP_TOKEN` — a token with **contents:write** on `Nigui/homebrew-tap`
+  (fine-grained PAT scoped to that repo, or a classic PAT with `repo`).
+
+Pre-release tags (e.g. `v0.0.1-pre`) publish a GitHub pre-release but do **not**
+touch the tap, keeping the brew channel on stable.
 
 ### Unsigned pre-release right now
 

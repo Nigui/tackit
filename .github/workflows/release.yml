@@ -11,6 +11,9 @@ name: Release
 #   APPLE_ID                Apple ID email for notarization
 #   APPLE_TEAM_ID           10-char team id
 #   APPLE_APP_PASSWORD      app-specific password for notarytool
+#
+# Optional — auto-update the Homebrew tap on stable tags:
+#   TAP_TOKEN               token with contents:write on Nigui/homebrew-tap
 
 on:
   push:
@@ -75,3 +78,18 @@ jobs:
           flags=(--generate-notes)
           if [ "$SIGNED" != "true" ]; then flags+=(--prerelease); fi
           gh release create "${GITHUB_REF_NAME}" dist/Tackit.dmg --title "${GITHUB_REF_NAME}" "${flags[@]}"
+
+      - name: Update Homebrew tap (stable tags only)
+        if: ${{ secrets.TAP_TOKEN != '' && !contains(github.ref_name, '-') }}
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          SHA="$(shasum -a 256 dist/Tackit.dmg | awk '{print $1}')"
+          git clone --depth 1 "https://x-access-token:${TAP_TOKEN}@github.com/Nigui/homebrew-tap.git" tap
+          sed -i '' -E "s|^  version \".*\"|  version \"${VERSION}\"|" tap/Casks/tackit.rb
+          sed -i '' -E "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" tap/Casks/tackit.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git commit -aqm "chore: tackit ${VERSION}"; then git push; else echo "cask already up to date"; fi
