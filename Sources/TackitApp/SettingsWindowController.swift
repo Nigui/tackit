@@ -81,7 +81,10 @@ final class SettingsWindowController: NSWindowController {
             shortcutRow("Show / hide all notes", "Global", recorder: makeRecorder(settings.globalHotkey) { [weak self] in self?.settings.setGlobalHotkey($0) }),
         ]
         for shortcut in AppShortcut.allCases {
-            let recorder = makeRecorder(settings.binding(for: shortcut)) { [weak self] in self?.settings.setBinding($0, for: shortcut) }
+            let recorder = makeRecorder(
+                settings.binding(for: shortcut),
+                accepts: { [weak self] combo in self?.settings.isAcceptableBinding(combo, for: shortcut) ?? true }
+            ) { [weak self] in self?.settings.setBinding($0, for: shortcut) }
             elements.append(shortcutRow(shortcut.label, nil, recorder: recorder))
         }
 
@@ -255,9 +258,10 @@ final class SettingsWindowController: NSWindowController {
         return container
     }
 
-    private func makeRecorder(_ combo: KeyCombo, onRecord: @escaping (KeyCombo) -> Void) -> ShortcutRecorderView {
+    private func makeRecorder(_ combo: KeyCombo, accepts: ((KeyCombo) -> Bool)? = nil, onRecord: @escaping (KeyCombo) -> Void) -> ShortcutRecorderView {
         let recorder = ShortcutRecorderView(combo: combo)
         recorder.onRecord = onRecord
+        recorder.accepts = accepts
         recorder.onRecordingChange = { [weak self] recording in self?.onRecordingChange(recording) }
         return recorder
     }

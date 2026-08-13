@@ -175,6 +175,22 @@ final class SettingsStore {
         Dictionary(uniqueKeysWithValues: AppShortcut.allCases.map { ($0, binding(for: $0)) })
     }
 
+    // Combos the sticky panel claims before user bindings: ⌘1–9 (18–28) and ⌘⌫ (51), when ⌘ is held without ⇧.
+    private static let reservedKeyCodes: Set<UInt32> = [18, 19, 20, 21, 23, 22, 26, 28, 25, 51]
+
+    func isReserved(_ combo: KeyCombo) -> Bool {
+        let hasCommand = combo.modifiers & UInt32(cmdKey) != 0
+        let hasShift = combo.modifiers & UInt32(shiftKey) != 0
+        return hasCommand && !hasShift && Self.reservedKeyCodes.contains(combo.keyCode)
+    }
+
+    func isAcceptableBinding(_ combo: KeyCombo, for shortcut: AppShortcut) -> Bool {
+        guard combo.modifiers & UInt32(cmdKey) != 0 else { return false } // in-app actions only dispatch with ⌘
+        if isReserved(combo) { return false }
+        if combo == globalHotkey { return false }
+        return !AppShortcut.allCases.contains { $0 != shortcut && binding(for: $0) == combo }
+    }
+
     private static func keyCodeKey(_ shortcut: AppShortcut) -> String { "sc_\(shortcut.rawValue)_key" }
     private static func modifiersKey(_ shortcut: AppShortcut) -> String { "sc_\(shortcut.rawValue)_mod" }
 

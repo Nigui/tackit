@@ -31,6 +31,7 @@ private final class KeyCap: NSView {
 final class ShortcutRecorderView: NSView {
     var onRecord: ((KeyCombo) -> Void)?
     var onRecordingChange: ((Bool) -> Void)?
+    var accepts: ((KeyCombo) -> Bool)?
 
     private var combo: KeyCombo
     private var recording = false
@@ -130,7 +131,12 @@ final class ShortcutRecorderView: NSView {
             NSSound.beep()
             return true
         }
-        stopRecording(commit: KeyCombo(keyCode: UInt32(event.keyCode), modifiers: modifiers))
+        let candidate = KeyCombo(keyCode: UInt32(event.keyCode), modifiers: modifiers)
+        if let accepts, !accepts(candidate) {
+            NSSound.beep()
+            return true
+        }
+        stopRecording(commit: candidate)
         return true
     }
 
