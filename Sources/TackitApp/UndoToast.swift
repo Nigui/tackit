@@ -1,8 +1,55 @@
 import AppKit
 import WebKit
 
-final class ClickView: NSView {
+enum ToastType {
+    case error, warning, success, info
+
+    var color: NSColor {
+        switch self {
+        case .error: return .systemRed
+        case .warning: return .systemYellow
+        case .success: return .systemGreen
+        case .info: return .systemBlue
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .error: return "exclamationmark.octagon.fill"
+        case .warning: return "exclamationmark.triangle.fill"
+        case .success: return "checkmark.circle.fill"
+        case .info: return "info.circle.fill"
+        }
+    }
+}
+
+final class ToastContentView: NSView {
     var onClick: (() -> Void)?
+    private let tint: NSColor
+
+    init(tint: NSColor) {
+        self.tint = tint
+        super.init(frame: .zero)
+        wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) { fatalError("not implemented") }
+
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        layer?.cornerRadius = 12
+        layer?.masksToBounds = true
+        layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+        layer?.borderWidth = 1
+        layer?.borderColor = tint.withAlphaComponent(0.55).cgColor
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+    }
+
     override func mouseDown(with event: NSEvent) { onClick?() }
 }
 
@@ -12,11 +59,11 @@ final class UndoToast {
     private var timer: Timer?
     private var undoAction: (() -> Void)?
 
-    func show(message: String, undo: @escaping () -> Void) {
+    func show(message: String, tip: String, type: ToastType, undo: @escaping () -> Void) {
         dismiss()
         undoAction = undo
 
-        let size = NSSize(width: 320, height: 46)
+        let size = NSSize(width: 300, height: 56)
         let panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -31,23 +78,40 @@ final class UndoToast {
         panel.backgroundColor = .clear
         panel.hasShadow = true
 
-        let content = ClickView()
-        content.wantsLayer = true
-        content.layer?.cornerRadius = 10
-        content.layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.98).cgColor
-        content.layer?.borderWidth = 1
-        content.layer?.borderColor = NSColor.separatorColor.cgColor
+        let content = ToastContentView(tint: type.color)
         content.onClick = { [weak self] in self?.performUndo() }
         panel.contentView = content
 
-        let label = NSTextField(labelWithString: message)
-        label.font = .systemFont(ofSize: 12)
-        label.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(label)
+        let icon = NSImageView()
+        icon.image = NSImage(systemSymbolName: type.symbolName, accessibilityDescription: nil)
+        icon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
+        icon.contentTintColor = type.color
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(icon)
+
+        let messageLabel = NSTextField(labelWithString: message)
+        messageLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        messageLabel.textColor = .labelColor
+
+        let tipLabel = NSTextField(labelWithString: tip)
+        tipLabel.font = .systemFont(ofSize: 11)
+        tipLabel.textColor = .secondaryLabelColor
+
+        let textStack = NSStackView(views: [messageLabel, tipLabel])
+        textStack.orientation = .vertical
+        textStack.alignment = .leading
+        textStack.spacing = 2
+        textStack.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(textStack)
+
         NSLayoutConstraint.activate([
-            label.centerYAnchor.constraint(equalTo: content.centerYAnchor),
-            label.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
-            label.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -16),
+            textStack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            textStack.centerYAnchor.constraint(equalTo: content.centerYAnchor),
+            icon.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
+            icon.centerYAnchor.constraint(equalTo: content.centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 24),
+            icon.heightAnchor.constraint(equalToConstant: 24),
+            textStack.trailingAnchor.constraint(lessThanOrEqualTo: icon.leadingAnchor, constant: -12),
         ])
 
         if let screen = NSScreen.main {

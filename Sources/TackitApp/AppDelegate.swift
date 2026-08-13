@@ -272,7 +272,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         searchIndex.remove(id: id)
         openNotes[id] = nil
 
-        undoToast.show(message: "Note deleted — click or ⌘Z to undo") { [weak self] in
+        undoToast.show(message: "Note deleted", tip: "press ⌘Z to undo", type: .info) { [weak self] in
             guard let self else { return }
             try? self.store?.save(note)
             self.searchIndex.upsert(note)
