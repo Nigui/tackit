@@ -1,4 +1,8 @@
-# Tackit ⚡📌
+<p align="center">
+  <img src="assets/banner.png" alt="Tackit — blazing-fast, keyboard-driven sticky notes for macOS" width="100%">
+</p>
+
+# Tackit
 
 An extremely fast, keyboard-driven, local-first note app for macOS — Apple Stickies ergonomics with a modern editor. Pin a thought in under a second, keep it always-on-top, never lose it.
 
