@@ -73,6 +73,10 @@ Handling the "blazing fast" pillar (this is the main risk of going web):
 
 Global hotkey, menu bar, capture panel, window/tab management, settings, search UI, file I/O, iCloud sync, WidgetKit widgets, App Intents/Siri — all SwiftUI/AppKit/UIKit. The webview is one component behind one protocol.
 
+### 1.5 Known limitations
+
+- **Remote images do not render.** The editor preserves Markdown links and images on load→save, but the webview's Content-Security-Policy is `img-src 'self' data:`, so an image referencing a remote `http(s)` URL is kept in the file yet displays broken. Embedded `data:` images and local (same-origin) images render. This is a deliberate local-first / no-phone-home default; relaxing `img-src` to allow remote hosts (which leaks a request to the image server on every open) is an open product decision, not yet taken.
+
 ---
 
 ## 2. Document / storage format
