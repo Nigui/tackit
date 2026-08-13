@@ -1,6 +1,7 @@
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from 'tiptap-markdown'
+import { EditorState } from '@tiptap/pm/state'
 
 interface Envelope {
   v: number
@@ -59,6 +60,15 @@ function getMarkdown(): string {
   return storage.markdown?.getMarkdown() ?? editor.getText()
 }
 
+function resetHistory(): void {
+  const fresh = EditorState.create({
+    schema: editor.state.schema,
+    doc: editor.state.doc,
+    plugins: editor.state.plugins,
+  })
+  editor.view.updateState(fresh)
+}
+
 let firstKeyLogged = false
 editor.view.dom.addEventListener(
   'keydown',
@@ -94,6 +104,7 @@ window.__tackitReceive = (envelope: Envelope) => {
       applyingRemote = true
       editor.commands.setContent(String(envelope.payload?.markdown ?? ''))
       applyingRemote = false
+      resetHistory()
       break
     case 'focus':
       editor.commands.focus('end')
@@ -102,6 +113,8 @@ window.__tackitReceive = (envelope: Envelope) => {
       applyingRemote = true
       editor.commands.clearContent()
       applyingRemote = false
+      resetHistory()
+      firstKeyLogged = false
       editor.commands.blur()
       break
     case 'theme':
