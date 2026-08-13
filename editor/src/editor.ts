@@ -1,9 +1,18 @@
-import { Editor } from '@tiptap/core'
+import { Editor, wrappingInputRule } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from 'tiptap-markdown'
 import { EditorState } from '@tiptap/pm/state'
 import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
+
+// Typing "[] ", "[ ] " or "[x] " at the start of a line turns it into a checkbox.
+const CheckboxList = TaskList.extend({
+  addInputRules() {
+    return [wrappingInputRule({ find: /^\s*\[([ xX]?)\]\s$/, type: this.type })]
+  },
+})
 
 interface Envelope {
   v: number
@@ -46,6 +55,8 @@ const editor = new Editor({
     StarterKit,
     Link.configure({ openOnClick: false, autolink: false, linkOnPaste: false }),
     Image.configure({ inline: true }),
+    CheckboxList,
+    TaskItem.configure({ nested: true }),
     Markdown.configure({ html: false, linkify: false, breaks: false }),
   ],
   content: '',

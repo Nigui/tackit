@@ -18,10 +18,28 @@
   .ProseMirror ::selection { background: rgba(240,185,11,0.28); }
   .ProseMirror a { color: #b8880a; text-decoration: underline; }
   .ProseMirror img { max-width: 100%; height: auto; border-radius: 6px; }
+  ul[data-type="taskList"] { list-style: none; margin: 0; padding: 0; }
+  ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 8px; margin: 3px 0; }
+  ul[data-type="taskList"] li > label { margin: 0; flex: 0 0 auto; display: inline-flex; align-items: center; height: 1.55em; user-select: none; -webkit-user-select: none; }
+  ul[data-type="taskList"] li > label > span { display: none; }
+  ul[data-type="taskList"] li > div { flex: 1 1 auto; min-width: 0; }
+  ul[data-type="taskList"] li > div > p { margin: 0; }
+  ul[data-type="taskList"] input[type="checkbox"] {
+    -webkit-appearance: none; appearance: none; margin: 0; width: 16px; height: 16px;
+    border: 1.5px solid rgba(60,60,67,0.42); border-radius: 5px; background: transparent;
+    cursor: pointer; position: relative; transition: background .12s ease, border-color .12s ease; }
+  ul[data-type="taskList"] input[type="checkbox"]:hover { border-color: #F0B90B; }
+  ul[data-type="taskList"] input[type="checkbox"]:checked { background: #F0B90B; border-color: #F0B90B; }
+  ul[data-type="taskList"] input[type="checkbox"]:checked::after {
+    content: ""; position: absolute; left: 4.5px; top: 1px; width: 4px; height: 8px;
+    border: solid #1c1c1e; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  ul[data-type="taskList"] li[data-checked="true"] > div > p { color: #8a8a8e; text-decoration: line-through; }
   html.dark, html.dark body { color: #f2f2f7; }
   html.dark .ProseMirror p.is-editor-empty:first-child::before { color: #8e8e93; }
   html.dark .ProseMirror pre { background: rgba(120,120,128,0.24); }
   html.dark .ProseMirror a { color: #f0b90b; }
+  html.dark ul[data-type="taskList"] input[type="checkbox"] { border-color: rgba(235,235,245,0.42); }
+  html.dark ul[data-type="taskList"] li[data-checked="true"] > div > p { color: #8e8e93; }
 </style>
 </head>
 <body>

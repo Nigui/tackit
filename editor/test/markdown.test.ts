@@ -4,6 +4,8 @@ import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from 'tiptap-markdown'
 import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
 
 function makeEditor(markdown: string): Editor {
   const element = document.createElement('div')
@@ -13,6 +15,8 @@ function makeEditor(markdown: string): Editor {
       StarterKit,
       Link.configure({ openOnClick: false, autolink: false, linkOnPaste: false }),
       Image.configure({ inline: true }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
       Markdown.configure({ html: false, linkify: false, breaks: false }),
     ],
     content: markdown,
@@ -91,6 +95,15 @@ describe('links and images are preserved on load→save', () => {
 
   it('keeps an image with its source', () => {
     expect(roundTrip('![alt text](https://example.com/x.png)')).toContain('![alt text](https://example.com/x.png)')
+  })
+
+  it('renders task lists as checkboxes and preserves checked state', () => {
+    const html = toHTML('- [ ] todo\n- [x] done')
+    expect(html).toContain('data-type="taskList"')
+    expect(html).toContain('data-checked="true"')
+    const md = roundTrip('- [ ] todo\n- [x] done')
+    expect(md).toContain('[ ] todo')
+    expect(md).toContain('[x] done')
   })
 })
 
