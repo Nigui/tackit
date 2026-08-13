@@ -104,14 +104,16 @@ final class UndoToast {
         content.addSubview(textStack)
 
         NSLayoutConstraint.activate([
-            textStack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
-            textStack.centerYAnchor.constraint(equalTo: content.centerYAnchor),
-            icon.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
+            icon.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
             icon.centerYAnchor.constraint(equalTo: content.centerYAnchor),
             icon.widthAnchor.constraint(equalToConstant: 24),
             icon.heightAnchor.constraint(equalToConstant: 24),
-            textStack.trailingAnchor.constraint(lessThanOrEqualTo: icon.leadingAnchor, constant: -12),
+            textStack.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 12),
+            textStack.centerYAnchor.constraint(equalTo: content.centerYAnchor),
+            textStack.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -16),
         ])
+
+        addLifetimeBar(to: content, width: size.width, color: type.color, duration: 6)
 
         if let screen = NSScreen.main {
             let visible = screen.visibleFrame
@@ -135,6 +137,26 @@ final class UndoToast {
         timer = Timer.scheduledTimer(withTimeInterval: 6, repeats: false) { [weak self] _ in
             self?.dismiss()
         }
+    }
+
+    // A thin bar along the bottom that drains right-to-left over the toast's lifetime.
+    private func addLifetimeBar(to content: NSView, width: CGFloat, color: NSColor, duration: CFTimeInterval) {
+        let fill = CALayer()
+        fill.anchorPoint = CGPoint(x: 0, y: 0)
+        fill.frame = CGRect(x: 0, y: 0, width: width, height: 3)
+        content.effectiveAppearance.performAsCurrentDrawingAppearance {
+            fill.backgroundColor = color.cgColor
+        }
+        content.layer?.addSublayer(fill)
+
+        let animation = CABasicAnimation(keyPath: "bounds.size.width")
+        animation.fromValue = width
+        animation.toValue = 0
+        animation.duration = duration
+        animation.timingFunction = CAMediaTimingFunction(name: .linear)
+        animation.fillMode = .forwards
+        animation.isRemovedOnCompletion = false
+        fill.add(animation, forKey: "deplete")
     }
 
     private func performUndo() {
