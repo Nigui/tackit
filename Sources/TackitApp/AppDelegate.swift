@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         Diag.log("launch: applicationDidFinishLaunching")
         setupStatusItem()
+        setupEditMenu()
         setupStore()
         rebuildSearchIndex()
         applyAppearance()
@@ -120,6 +121,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for url in store.lastLoadFailures {
             Diag.log("WARNING: skipped unreadable or malformed note file: \(url.lastPathComponent)")
         }
+    }
+
+    private func setupEditMenu() {
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        let editItem = NSMenuItem()
+        editItem.submenu = edit
+        let main = NSMenu()
+        main.addItem(editItem)
+        NSApp.mainMenu = main
     }
 
     private func setupStatusItem() {
