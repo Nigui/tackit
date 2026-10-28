@@ -11,14 +11,23 @@ Homebrew cask. We assemble the `.app` from the SwiftPM build (no `.xcodeproj`);
 - `packaging/AppIcon.png` / `AppIcon.icns` — **placeholder** icon; replace `AppIcon.png` with real 1024×1024 branding and rerun `scripts/make-icon.sh`.
 - `packaging/tackit.rb` — Homebrew cask template.
 - `scripts/make-icon.sh` — `AppIcon.png` → `AppIcon.icns` (generates a placeholder if the PNG is missing).
-- `scripts/package.sh` — build + assemble + (sign) + `.dmg` + (notarize + staple).
+- `scripts/package.sh` — build + assemble + sign (Developer ID, or ad-hoc without one) + `.dmg` + (notarize + staple).
+
+The SwiftPM resource bundle (`Tackit_TackitApp.bundle`, holding the editor) goes
+in `Contents/Resources` only. `Contents/MacOS` must contain nothing but the
+binary, or `codesign` rejects the bundle. The app loads it via `Bundle.resources`
+(`Sources/TackitApp/ResourceBundle.swift`), not `Bundle.module`, whose generated
+accessor only checks the `.app` root and the build machine's `.build` path.
 
 ## Local build (unsigned)
 
 ```sh
 ./scripts/package.sh
-# → dist/Tackit.app + dist/Tackit.dmg (unsigned; Gatekeeper blocks on other Macs)
+# → dist/Tackit.app + dist/Tackit.dmg (ad-hoc signed; Gatekeeper blocks on other Macs)
+codesign --verify --strict --verbose=2 dist/Tackit.app   # must say "valid on disk"
 ```
+
+`spctl -a dist/Tackit.app` reports `rejected` for any non-notarized build; that's expected.
 
 ## Signed + notarized build
 
@@ -46,8 +55,8 @@ and creates a GitHub release with the DMG. It needs these repo secrets:
 
 ## Homebrew cask
 
-Copy `packaging/tackit.rb` into a tap repo, set `OWNER/REPO`, bump `version`, and
-paste the DMG `sha256`. Then `brew install --cask tackit`.
+The live cask is `Casks/tackit.rb` in `Nigui/homebrew-tap`; `packaging/tackit.rb`
+is only the template it started from. Stable tags update it automatically (see below).
 
 ## CI release checklist
 
@@ -80,13 +89,20 @@ git push -u origin main
 
 ### 3. Cut a release
 
-```sh
-git tag v0.0.1
-git push origin v0.0.1
-```
+1. Bump `CFBundleShortVersionString` (the `X.Y.Z`) and increment `CFBundleVersion`
+   in `packaging/Info.plist`, then commit: `chore(release): X.Y.Z`.
+2. Sanity-check locally: `./scripts/package.sh` must end with `valid on disk`.
+3. Tag and push:
+   ```sh
+   git tag -a vX.Y.Z -m "Tackit X.Y.Z"
+   git push origin main vX.Y.Z
+   ```
+4. Watch the run: `gh run watch -R Nigui/tackit $(gh run list -R Nigui/tackit -w release.yml -L 1 --json databaseId -q '.[0].databaseId')`.
+5. Verify: the GitHub release has `Tackit.dmg`, and (stable tags) `Nigui/homebrew-tap`
+   got a `chore: tackit X.Y.Z` commit. Then `brew upgrade --cask nigui/tap/tackit`.
 
-The workflow builds, (signs + notarizes when secrets are set), and publishes the
-DMG to a GitHub release.
+The workflow builds, signs (Developer ID when secrets are set, ad-hoc otherwise),
+notarizes when it can, and publishes the DMG to a GitHub release.
 
 **Homebrew tap auto-update:** for **stable** tags (no `-`, e.g. `v0.0.1`) the
 workflow also rewrites `Casks/tackit.rb` in `Nigui/homebrew-tap` with the new
@@ -101,9 +117,13 @@ touch the tap, keeping the brew channel on stable.
 
 ### Unsigned pre-release right now
 
-Push a tag **without** the signing secrets → the workflow publishes an unsigned
-`Tackit.dmg` marked as a pre-release, so you can exercise the whole pipeline and
-share a test build before enrolling. (Testers open it via right-click → Open.)
+Push a tag **without** the signing secrets → the workflow publishes an ad-hoc
+signed, non-notarized `Tackit.dmg` marked as a pre-release. A stable tag still
+updates the tap. Gatekeeper blocks it, and right-click → Open no longer bypasses
+that on macOS 15+. Testers either use System Settings → Privacy & Security →
+Open Anyway, or run `xattr -dr com.apple.quarantine /Applications/Tackit.app`
+(what the README and `scripts/install.sh` do). Homebrew removed
+`--no-quarantine`, so brew users need the `xattr` step too.
 
 ## Deferred to a later pass
 
