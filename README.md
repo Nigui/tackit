@@ -23,7 +23,8 @@ An extremely fast, keyboard-driven, local-first note app for macOS — Apple Sti
 **Homebrew (recommended):**
 
 ```sh
-brew install --cask --no-quarantine nigui/tap/tackit
+brew install --cask nigui/tap/tackit
+xattr -dr com.apple.quarantine /Applications/Tackit.app
 ```
 
 **One-line script (no Homebrew):**
@@ -34,7 +35,7 @@ curl -fsSL https://raw.githubusercontent.com/Nigui/tackit/main/scripts/install.s
 
 Either installs `Tackit.app`; it runs as a menu-bar agent (📌, no Dock icon). Press **⌘⇧.** to summon a note.
 
-> Pre-release builds aren't notarized yet, so `--no-quarantine` (Homebrew) / the script's de-quarantine step is needed to get past Gatekeeper. Once a signed release ships, a plain `brew install --cask nigui/tap/tackit` just works.
+> Pre-release builds aren't notarized yet, so the `xattr` step (Homebrew) / the script's de-quarantine step is needed to get past Gatekeeper. Homebrew no longer supports `--no-quarantine`. Once a signed release ships, a plain `brew install --cask nigui/tap/tackit` just works.
 
 ## Build from source
 
