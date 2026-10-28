@@ -44,7 +44,9 @@ if [ -n "${SIGN_IDENTITY:-}" ]; then
     --sign "$SIGN_IDENTITY" "$APP"
   codesign --verify --strict --verbose=2 "$APP"
 else
-  echo "==> SIGN_IDENTITY not set — UNSIGNED build (Gatekeeper will block on other Macs)"
+  echo "==> SIGN_IDENTITY not set — ad-hoc signing (Gatekeeper will block on other Macs)"
+  codesign --force --sign - "$APP"
+  codesign --verify --strict --verbose=2 "$APP"
 fi
 
 echo "==> build ${DMG}"
