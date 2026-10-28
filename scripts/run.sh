@@ -17,7 +17,6 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN/tackit" "$APP/Contents/MacOS/tackit"
 if [ -d "$BIN/Tackit_TackitApp.bundle" ]; then
-  cp -R "$BIN/Tackit_TackitApp.bundle" "$APP/Contents/MacOS/"
   cp -R "$BIN/Tackit_TackitApp.bundle" "$APP/Contents/Resources/"
 fi
 cp packaging/Info.plist "$APP/Contents/Info.plist"

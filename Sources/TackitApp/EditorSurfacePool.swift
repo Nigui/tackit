@@ -11,10 +11,10 @@ final class EditorSurfacePool {
 
     init(size: Int) {
         self.size = size
-        let directory = Bundle.module.resourceURL?.appendingPathComponent("editor")
+        let directory = Bundle.resources.resourceURL?.appendingPathComponent("editor")
         self.editorDirectory = directory
-        self.indexURL = Bundle.module.url(forResource: "index", withExtension: "html", subdirectory: "editor")
-        self.navigationDelegate = EditorNavigationDelegate(baseDirectory: directory ?? Bundle.module.bundleURL)
+        self.indexURL = Bundle.resources.url(forResource: "index", withExtension: "html", subdirectory: "editor")
+        self.navigationDelegate = EditorNavigationDelegate(baseDirectory: directory ?? Bundle.resources.bundleURL)
     }
 
     func warmUp() {

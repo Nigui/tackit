@@ -162,7 +162,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setStatusIcon(warning: Bool) {
         guard let button = statusItem?.button else { return }
-        if let url = Bundle.module.url(forResource: "StatusIcon", withExtension: "png"),
+        if let url = Bundle.resources.url(forResource: "StatusIcon", withExtension: "png"),
            let icon = NSImage(contentsOf: url) {
             icon.size = NSSize(width: 18, height: 18)
             icon.isTemplate = true
